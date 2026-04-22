@@ -76,3 +76,36 @@ export interface Comissao {
   updated_at: string
   comissao_prestadores: ComissaoPrestador[]
 }
+
+export type StatusEmprestimo = 'ativo' | 'quitado' | 'cancelado'
+export type StatusParcela = 'pendente' | 'paga' | 'adiantada' | 'quitada_avulso'
+export type TipoPagamentoParcela = 'desconto_normal' | 'adiantamento' | 'pagamento_avulso'
+export type ModoMultiplosEmprestimos = 'sequencial' | 'acumulado'
+
+export interface ParcelaEmprestimo {
+  id: string
+  emprestimo_id: string
+  numero_parcela: number
+  valor: number
+  moeda: MoedaSimples
+  mes_referencia: string
+  status: StatusParcela
+  tipo_pagamento: TipoPagamentoParcela | null
+  data_pagamento: string | null
+  created_at: string
+}
+
+export interface Emprestimo {
+  id: string
+  prestador_id: string
+  valor_total: number
+  numero_parcelas: number
+  valor_parcela: number
+  moeda: MoedaSimples
+  mes_inicio: string
+  status: StatusEmprestimo
+  observacoes: string | null
+  created_at: string
+  prestadores?: { nome: string }
+  parcelas_emprestimo?: ParcelaEmprestimo[]
+}

@@ -1,7 +1,31 @@
-import Link from "next/link";
-import { ArrowLeft, Landmark } from "lucide-react";
+import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
+import { ArrowLeft, Landmark } from 'lucide-react'
+import EmprestimosList from './emprestimos-list'
 
-export default function EmprestimosPage() {
+export default async function EmprestimosPage() {
+  const supabase = await createClient()
+
+  const [{ data: emprestimos, error }, { data: prestadores }] = await Promise.all([
+    supabase
+      .from('emprestimos')
+      .select('*, prestadores(nome), parcelas_emprestimo(*)')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('prestadores')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('nome'),
+  ])
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-destructive">Erro ao carregar empréstimos.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-5">
@@ -26,15 +50,16 @@ export default function EmprestimosPage() {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Empréstimos</h1>
             <p className="text-sm text-muted-foreground">
-              Controle de empréstimos concedidos aos prestadores
+              Controle de empréstimos e adiantamentos aos prestadores
             </p>
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">Em desenvolvimento.</p>
-        </div>
+        <EmprestimosList
+          emprestimos={emprestimos ?? []}
+          prestadores={prestadores ?? []}
+        />
       </main>
     </div>
-  );
+  )
 }
