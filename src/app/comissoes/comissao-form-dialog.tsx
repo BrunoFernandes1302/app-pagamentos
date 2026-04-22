@@ -165,7 +165,8 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
   const { rate, loading: rateLoading, error: rateError } = useExchangeRate()
 
   const form = useForm<FormData>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
     defaultValues: DEFAULTS,
   })
 

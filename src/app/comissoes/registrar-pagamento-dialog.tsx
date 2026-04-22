@@ -59,7 +59,8 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
   const [serverError, setServerError] = useState<string | null>(null)
 
   const form = useForm<FormData>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
     defaultValues: { valor: 0 },
   })
 

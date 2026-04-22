@@ -73,7 +73,8 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
   const [serverError, setServerError] = useState<string | null>(null)
 
   const form = useForm<FormData>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
     defaultValues: DEFAULTS,
   })
 
