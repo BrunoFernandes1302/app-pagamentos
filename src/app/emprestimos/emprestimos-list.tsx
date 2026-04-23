@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, FileText, XCircle, Landmark } from 'lucide-react'
+import { Plus, FileText, XCircle, Landmark, RotateCcw, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { cancelarEmprestimo } from './actions'
+import { cancelarEmprestimo, reativarEmprestimo, excluirEmprestimo } from './actions'
 import EmprestimoFormDialog from './emprestimo-form-dialog'
 import ParcelasDialog from './parcelas-dialog'
 import type { Emprestimo, StatusEmprestimo } from '@/lib/types'
@@ -53,6 +53,22 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
     if (!confirm('Cancelar este empréstimo? As parcelas pendentes serão mantidas no histórico.')) return
     startTransition(async () => {
       await cancelarEmprestimo(id)
+      router.refresh()
+    })
+  }
+
+  const handleReativar = (id: string) => {
+    if (!confirm('Reativar este empréstimo?')) return
+    startTransition(async () => {
+      await reativarEmprestimo(id)
+      router.refresh()
+    })
+  }
+
+  const handleExcluir = (id: string) => {
+    if (!confirm('Excluir permanentemente este empréstimo? Esta ação não pode ser desfeita.')) return
+    startTransition(async () => {
+      await excluirEmprestimo(id)
       router.refresh()
     })
   }
@@ -190,6 +206,26 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                             <XCircle className="h-3.5 w-3.5" />
                             Cancelar
                           </button>
+                        )}
+                        {emp.status === 'cancelado' && (
+                          <>
+                            <button
+                              onClick={() => handleReativar(emp.id)}
+                              disabled={isPending}
+                              className="flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-40"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              Desfazer
+                            </button>
+                            <button
+                              onClick={() => handleExcluir(emp.id)}
+                              disabled={isPending}
+                              className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Excluir
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>

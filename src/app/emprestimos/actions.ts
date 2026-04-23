@@ -79,6 +79,27 @@ export async function cancelarEmprestimo(id: string) {
   revalidatePath('/emprestimos')
 }
 
+export async function reativarEmprestimo(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('emprestimos')
+    .update({ status: 'ativo' })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/emprestimos')
+}
+
+export async function excluirEmprestimo(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('emprestimos')
+    .delete()
+    .eq('id', id)
+    .eq('status', 'cancelado')
+  if (error) throw new Error(error.message)
+  revalidatePath('/emprestimos')
+}
+
 export async function pagarParcela(parcelaId: string, emprestimoId: string) {
   const supabase = await createClient()
 

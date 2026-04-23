@@ -1,7 +1,27 @@
-import Link from "next/link";
-import { ArrowLeft, TrendingUp } from "lucide-react";
+import Link from 'next/link'
+import { ArrowLeft, TrendingUp } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import ProgressaoList from './progressao-list'
+import { aplicarProgressoes } from './actions'
 
-export default function ProgressaoSalarialPage() {
+export default async function ProgressaoSalarialPage() {
+  await aplicarProgressoes()
+
+  const supabase = await createClient()
+
+  const [{ data: progressoes, error }, { data: prestadores }] = await Promise.all([
+    supabase
+      .from('progressao_salarial')
+      .select('*, prestadores(nome, contrato)')
+      .eq('status', 'ativo')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('prestadores')
+      .select('id, nome, contrato, salario_base')
+      .eq('ativo', true)
+      .order('nome'),
+  ])
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-5">
@@ -31,10 +51,17 @@ export default function ProgressaoSalarialPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">Em desenvolvimento.</p>
-        </div>
+        {error ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
+            Erro ao carregar dados: {error.message}
+          </div>
+        ) : (
+          <ProgressaoList
+            progressoes={progressoes ?? []}
+            prestadores={prestadores ?? []}
+          />
+        )}
       </main>
     </div>
-  );
+  )
 }

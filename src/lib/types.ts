@@ -77,6 +77,20 @@ export interface Comissao {
   comissao_prestadores: ComissaoPrestador[]
 }
 
+export type StatusProgressao = 'ativo' | 'concluido' | 'cancelado'
+
+export interface ProgressaoSalarial {
+  id: string
+  prestador_id: string
+  salario_inicial: number
+  incremento: number
+  salario_alvo: number
+  mes_inicio: string // 'YYYY-MM-DD'
+  status: StatusProgressao
+  created_at: string
+  prestadores?: { nome: string; contrato: TipoContrato }
+}
+
 export type StatusEmprestimo = 'ativo' | 'quitado' | 'cancelado'
 export type StatusParcela = 'pendente' | 'paga' | 'adiantada' | 'quitada_avulso'
 export type TipoPagamentoParcela = 'desconto_normal' | 'adiantamento' | 'pagamento_avulso'
