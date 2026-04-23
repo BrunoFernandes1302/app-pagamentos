@@ -13,7 +13,7 @@ export default async function ResumoPage() {
   const mesAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const mesLabel = format(startOfMonth(new Date()), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const [{ data: prestadores }, { data: empAtivos }] = await Promise.all([
+  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }] = await Promise.all([
     supabase
       .from('prestadores')
       .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix')
@@ -23,6 +23,11 @@ export default async function ResumoPage() {
       .from('emprestimos')
       .select('id, prestador_id')
       .eq('status', 'ativo'),
+    supabase
+      .from('historico_pagamentos')
+      .select('prestador_id')
+      .eq('tipo', 'salario')
+      .eq('mes_referencia', mesAtual),
   ])
 
   const empIds = empAtivos?.map(e => e.id) ?? []
@@ -46,6 +51,10 @@ export default async function ResumoPage() {
     if (!parcelasByPrestador.has(prestadorId)) parcelasByPrestador.set(prestadorId, [])
     parcelasByPrestador.get(prestadorId)!.push({ valor: p.valor, moeda: p.moeda })
   }
+
+  const pagoIds = (pagosNoMes ?? [])
+    .map(p => p.prestador_id)
+    .filter((id): id is string => id !== null)
 
   const items = (prestadores ?? []).map(p => ({
     ...p,
@@ -83,7 +92,7 @@ export default async function ResumoPage() {
           </div>
         </div>
 
-        <ResumoList items={items} />
+        <ResumoList items={items} pagoIds={pagoIds} mesAtual={mesAtual} />
       </main>
     </div>
   )
