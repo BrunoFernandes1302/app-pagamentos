@@ -72,7 +72,7 @@ export default async function Home() {
       .select('organizations(nome)')
       .eq('id', user.id)
       .single();
-    orgNome = (data?.organizations as { nome: string } | null)?.nome ?? '';
+    orgNome = (data?.organizations as unknown as { nome: string } | null)?.nome ?? '';
   }
 
   return (

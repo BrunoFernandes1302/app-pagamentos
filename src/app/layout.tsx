@@ -41,7 +41,7 @@ export default async function RootLayout({
       profile = {
         nome: data.nome as string,
         role: data.role as string,
-        orgNome: (data.organizations as { nome: string } | null)?.nome ?? '',
+        orgNome: (data.organizations as unknown as { nome: string } | null)?.nome ?? '',
       }
     }
   }
