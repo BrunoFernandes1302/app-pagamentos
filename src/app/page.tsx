@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import {
   Percent,
   Landmark,
@@ -60,16 +61,31 @@ const modules = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let orgNome = '';
+  if (user) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('organizations(nome)')
+      .eq('id', user.id)
+      .single();
+    orgNome = (data?.organizations as { nome: string } | null)?.nome ?? '';
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card px-6 py-5">
         <div className="mx-auto max-w-5xl">
-          <p className="text-sm font-medium text-muted-foreground">
-            Ether Private Bank
-          </p>
+          {orgNome && (
+            <p className="text-sm font-medium text-muted-foreground">
+              {orgNome}
+            </p>
+          )}
           <h1 className="text-2xl font-bold text-foreground">
-            Sistema de Pagamentos
+            StableLedger
           </h1>
         </div>
       </header>

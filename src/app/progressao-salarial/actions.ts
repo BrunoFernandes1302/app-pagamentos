@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getOrganizationId } from '@/lib/auth'
 import { differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
 
 interface ProgressaoCreateInput {
@@ -9,17 +10,18 @@ interface ProgressaoCreateInput {
   salario_inicial: number
   incremento: number
   salario_alvo: number
-  mes_inicio: string // 'YYYY-MM'
+  mes_inicio: string
 }
 
 interface ProgressaoUpdateInput {
   salario_inicial: number
   incremento: number
   salario_alvo: number
-  mes_inicio: string // 'YYYY-MM'
+  mes_inicio: string
 }
 
 export async function criarProgressao(data: ProgressaoCreateInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { data: existente } = await supabase
@@ -27,9 +29,10 @@ export async function criarProgressao(data: ProgressaoCreateInput) {
     .select('id')
     .eq('prestador_id', data.prestador_id)
     .eq('status', 'ativo')
+    .eq('organization_id', orgId)
     .maybeSingle()
 
-  if (existente) throw new Error('Este prestador já possui uma progressão ativa')
+  if (existente) throw new Error('Este prestador já possui uma progressão ativa.')
 
   const { error } = await supabase.from('progressao_salarial').insert({
     prestador_id: data.prestador_id,
@@ -38,13 +41,15 @@ export async function criarProgressao(data: ProgressaoCreateInput) {
     salario_alvo: data.salario_alvo,
     mes_inicio: data.mes_inicio + '-01',
     status: 'ativo',
+    organization_id: orgId,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Erro ao criar progressão.')
   revalidatePath('/progressao-salarial')
 }
 
 export async function atualizarProgressao(id: string, data: ProgressaoUpdateInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { error } = await supabase
@@ -56,24 +61,27 @@ export async function atualizarProgressao(id: string, data: ProgressaoUpdateInpu
       mes_inicio: data.mes_inicio + '-01',
     })
     .eq('id', id)
+    .eq('organization_id', orgId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Erro ao atualizar progressão.')
   revalidatePath('/progressao-salarial')
 }
 
 export async function cancelarProgressao(id: string) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { data: p } = await supabase
     .from('progressao_salarial')
     .select('mes_inicio')
     .eq('id', id)
+    .eq('organization_id', orgId)
     .single()
 
   if (p) {
     const iniciaMesAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
     if (p.mes_inicio <= iniciaMesAtual) {
-      throw new Error('Não é possível cancelar uma progressão que já foi iniciada')
+      throw new Error('Não é possível cancelar uma progressão que já foi iniciada.')
     }
   }
 
@@ -81,12 +89,14 @@ export async function cancelarProgressao(id: string) {
     .from('progressao_salarial')
     .update({ status: 'cancelado' })
     .eq('id', id)
+    .eq('organization_id', orgId)
 
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Erro ao cancelar progressão.')
   revalidatePath('/progressao-salarial')
 }
 
 export async function aplicarProgressoes() {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
   const inicioMesAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
 
@@ -94,6 +104,7 @@ export async function aplicarProgressoes() {
     .from('progressao_salarial')
     .select('*')
     .eq('status', 'ativo')
+    .eq('organization_id', orgId)
     .lte('mes_inicio', inicioMesAtual)
 
   if (!progressoes?.length) return
@@ -111,12 +122,14 @@ export async function aplicarProgressoes() {
       .from('prestadores')
       .update({ salario_base: salarioAtual })
       .eq('id', p.prestador_id)
+      .eq('organization_id', orgId)
 
     if (salarioAtual >= p.salario_alvo) {
       await supabase
         .from('progressao_salarial')
         .update({ status: 'concluido' })
         .eq('id', p.id)
+        .eq('organization_id', orgId)
     }
   }
 }

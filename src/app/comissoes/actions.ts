@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getOrganizationId } from '@/lib/auth'
 import type { MoedaSimples } from '@/lib/types'
 
 interface PrestadorComissaoInput {
@@ -20,6 +21,7 @@ interface CriarComissaoInput {
 }
 
 export async function criarComissao(input: CriarComissaoInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { data: comissao, error: errComissao } = await supabase
@@ -30,25 +32,33 @@ export async function criarComissao(input: CriarComissaoInput) {
       moeda_venda: input.moeda_venda,
       receita_ether: input.receita_ether,
       previsao_pagamento: input.previsao_pagamento,
+      organization_id: orgId,
     })
     .select('id')
     .single()
 
-  if (errComissao) throw new Error(errComissao.message)
+  if (errComissao) throw new Error('Erro ao criar comissão.')
 
   const { error: errPrestadores } = await supabase
     .from('comissao_prestadores')
-    .insert(input.prestadores.map(p => ({ comissao_id: comissao.id, ...p })))
+    .insert(
+      input.prestadores.map((p) => ({
+        comissao_id: comissao.id,
+        organization_id: orgId,
+        ...p,
+      })),
+    )
 
   if (errPrestadores) {
     await supabase.from('comissoes').delete().eq('id', comissao.id)
-    throw new Error(errPrestadores.message)
+    throw new Error('Erro ao associar prestadores à comissão.')
   }
 
   revalidatePath('/comissoes')
 }
 
 export async function atualizarComissao(id: string, input: CriarComissaoInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { error: errComissao } = await supabase
@@ -61,29 +71,42 @@ export async function atualizarComissao(id: string, input: CriarComissaoInput) {
       previsao_pagamento: input.previsao_pagamento,
     })
     .eq('id', id)
+    .eq('organization_id', orgId)
 
-  if (errComissao) throw new Error(errComissao.message)
+  if (errComissao) throw new Error('Erro ao atualizar comissão.')
 
   const { error: errDelete } = await supabase
     .from('comissao_prestadores')
     .delete()
     .eq('comissao_id', id)
+    .eq('organization_id', orgId)
 
-  if (errDelete) throw new Error(errDelete.message)
+  if (errDelete) throw new Error('Erro ao atualizar comissão.')
 
   const { error: errInsert } = await supabase
     .from('comissao_prestadores')
-    .insert(input.prestadores.map(p => ({ comissao_id: id, ...p })))
+    .insert(
+      input.prestadores.map((p) => ({
+        comissao_id: id,
+        organization_id: orgId,
+        ...p,
+      })),
+    )
 
-  if (errInsert) throw new Error(errInsert.message)
+  if (errInsert) throw new Error('Erro ao atualizar comissão.')
 
   revalidatePath('/comissoes')
 }
 
 export async function excluirComissao(id: string) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
-  const { error } = await supabase.from('comissoes').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  const { error } = await supabase
+    .from('comissoes')
+    .delete()
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao excluir comissão.')
   revalidatePath('/comissoes')
 }
 
@@ -101,6 +124,7 @@ interface RegistrarPagamentoInput {
 }
 
 export async function registrarPagamentoComissao(input: RegistrarPagamentoInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const descricao = `Comissão: ${input.tipo} — ${input.descricaoComissao}`
@@ -118,16 +142,18 @@ export async function registrarPagamentoComissao(input: RegistrarPagamentoInput)
       moeda: input.moeda,
       comprovante: input.comprovante,
       mes_referencia: input.mesReferencia,
+      organization_id: orgId,
     })
 
-  if (errHistorico) throw new Error(errHistorico.message)
+  if (errHistorico) throw new Error('Erro ao registrar pagamento.')
 
   const { error: errUpdate } = await supabase
     .from('comissao_prestadores')
     .update({ pago: true, valor_comissao: input.valor })
     .eq('id', input.cpId)
+    .eq('organization_id', orgId)
 
-  if (errUpdate) throw new Error(errUpdate.message)
+  if (errUpdate) throw new Error('Erro ao registrar pagamento.')
 
   revalidatePath('/comissoes')
   revalidatePath('/historico')

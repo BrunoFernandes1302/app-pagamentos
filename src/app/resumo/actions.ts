@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getOrganizationId } from '@/lib/auth'
 import type { MoedaSimples } from '@/lib/types'
 
 interface RegistrarPagamentoSalarioInput {
@@ -9,11 +10,12 @@ interface RegistrarPagamentoSalarioInput {
   prestadorNome: string
   valor: number
   moeda: MoedaSimples
-  mesReferencia: string // 'YYYY-MM-DD'
+  mesReferencia: string
   descricao: string
 }
 
 export async function registrarPagamentoSalario(input: RegistrarPagamentoSalarioInput) {
+  const orgId = await getOrganizationId()
   const supabase = await createClient()
 
   const { error } = await supabase.from('historico_pagamentos').insert({
@@ -27,9 +29,10 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
     moeda: input.moeda,
     comprovante: null,
     mes_referencia: input.mesReferencia,
+    organization_id: orgId,
   })
 
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Erro ao registrar pagamento.')
 
   revalidatePath('/resumo')
   revalidatePath('/historico')

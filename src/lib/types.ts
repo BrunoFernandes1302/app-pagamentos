@@ -1,5 +1,21 @@
 export type TipoContrato = 'USDT' | 'USDT/BRL' | 'BRL'
 
+export type UserRole = 'super_admin' | 'admin' | 'member'
+
+export interface Organization {
+  id: string
+  nome: string
+  created_at: string
+}
+
+export interface Profile {
+  id: string
+  organization_id: string
+  nome: string
+  role: UserRole
+  created_at: string
+}
+
 export interface Prestador {
   id: string
   nome: string
