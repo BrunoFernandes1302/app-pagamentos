@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import { ArrowLeft, Percent } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getOrganizationId } from '@/lib/auth'
 import ComissoesList from './comissoes-list'
 
 export default async function ComissoesPage() {
   const supabase = await createClient()
+  const orgId = await getOrganizationId()
 
   const [comissoesRes, prestadoresRes] = await Promise.all([
     supabase
@@ -16,10 +18,12 @@ export default async function ComissoesPage() {
           prestadores ( nome, carteira_cripto, rede_cripto, chave_pix )
         )
       `)
+      .eq('organization_id', orgId)
       .order('created_at', { ascending: false }),
     supabase
       .from('prestadores')
       .select('id, nome, carteira_cripto, rede_cripto, chave_pix')
+      .eq('organization_id', orgId)
       .eq('ativo', true)
       .order('nome'),
   ])

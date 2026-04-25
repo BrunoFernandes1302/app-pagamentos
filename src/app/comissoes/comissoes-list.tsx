@@ -69,9 +69,9 @@ export default function ComissoesList({
   const prestadoresFiltro = useMemo(() => {
     const map = new Map<string, string>()
     comissoes.forEach(c =>
-      c.comissao_prestadores.forEach(cp =>
-        map.set(cp.prestador_id, cp.prestadores.nome)
-      )
+      c.comissao_prestadores.forEach(cp => {
+        if (cp.prestadores) map.set(cp.prestador_id, cp.prestadores.nome)
+      })
     )
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]))
   }, [comissoes])
@@ -294,14 +294,14 @@ export default function ComissoesList({
                     const precisaConversao = c.moeda_venda !== cp.moeda_recebimento
                     const info =
                       cp.moeda_recebimento === 'BRL'
-                        ? { val: cp.prestadores.chave_pix, rede: null }
-                        : { val: cp.prestadores.carteira_cripto, rede: cp.prestadores.rede_cripto }
+                        ? { val: cp.prestadores?.chave_pix ?? null, rede: null }
+                        : { val: cp.prestadores?.carteira_cripto ?? null, rede: cp.prestadores?.rede_cripto ?? null }
 
                     return (
                       <div key={cp.id} className="px-5 py-4">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                           <span className="font-medium text-sm text-foreground">
-                            {cp.prestadores.nome}
+                            {cp.prestadores?.nome ?? '(Prestador removido)'}
                           </span>
                           <span className="text-sm text-muted-foreground">
                             {cp.percentual}% da receita{' → '}
@@ -357,11 +357,11 @@ export default function ComissoesList({
                                 comissaoTipo: c.tipo,
                                 comissaoDescricao: c.descricao,
                                 prestadorId: cp.prestador_id,
-                                prestadorNome: cp.prestadores.nome,
+                                prestadorNome: cp.prestadores?.nome ?? '(Prestador removido)',
                                 moeda: cp.moeda_recebimento,
-                                carteiraCripto: cp.prestadores.carteira_cripto,
-                                redeCripto: cp.prestadores.rede_cripto,
-                                chavePix: cp.prestadores.chave_pix,
+                                carteiraCripto: cp.prestadores?.carteira_cripto ?? null,
+                                redeCripto: cp.prestadores?.rede_cripto ?? null,
+                                chavePix: cp.prestadores?.chave_pix ?? null,
                                 valorSugerido: valorAtual,
                                 rate,
                                 defaultMes: c.previsao_pagamento

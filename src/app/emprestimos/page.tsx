@@ -1,19 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
+import { getOrganizationId } from '@/lib/auth'
 import Link from 'next/link'
 import { ArrowLeft, Landmark } from 'lucide-react'
 import EmprestimosList from './emprestimos-list'
 
 export default async function EmprestimosPage() {
   const supabase = await createClient()
+  const orgId = await getOrganizationId()
 
   const [{ data: emprestimos, error }, { data: prestadores }] = await Promise.all([
     supabase
       .from('emprestimos')
       .select('*, prestadores(nome), parcelas_emprestimo(*)')
+      .eq('organization_id', orgId)
       .order('created_at', { ascending: false }),
     supabase
       .from('prestadores')
       .select('id, nome')
+      .eq('organization_id', orgId)
       .eq('ativo', true)
       .order('nome'),
   ])
