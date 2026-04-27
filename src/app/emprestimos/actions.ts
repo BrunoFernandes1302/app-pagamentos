@@ -104,7 +104,7 @@ export async function excluirEmprestimo(id: string) {
     .from('emprestimos')
     .delete()
     .eq('id', id)
-    .eq('status', 'cancelado')
+    .in('status', ['cancelado', 'quitado'])
     .eq('organization_id', orgId)
   if (error) throw new Error('Erro ao excluir empréstimo.')
   revalidatePath('/emprestimos')

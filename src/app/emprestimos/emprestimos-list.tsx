@@ -227,6 +227,16 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                             </button>
                           </>
                         )}
+                        {emp.status === 'quitado' && (
+                          <button
+                            onClick={() => handleExcluir(emp.id)}
+                            disabled={isPending}
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

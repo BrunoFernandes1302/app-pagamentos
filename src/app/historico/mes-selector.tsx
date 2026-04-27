@@ -8,7 +8,7 @@ const MESES = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
-export default function MesSelector({ mesAtual }: { mesAtual: string }) {
+export default function MesSelector({ mesAtual, basePath = '/historico' }: { mesAtual: string; basePath?: string }) {
   const router = useRouter()
   const [ano, mes] = mesAtual.split('-').map(Number)
 
@@ -17,7 +17,7 @@ export default function MesSelector({ mesAtual }: { mesAtual: string }) {
     let novoAno = ano
     if (novoMes > 12) { novoMes = 1; novoAno++ }
     if (novoMes < 1) { novoMes = 12; novoAno-- }
-    router.push(`/historico?mes=${novoAno}-${String(novoMes).padStart(2, '0')}`)
+    router.push(`${basePath}?mes=${novoAno}-${String(novoMes).padStart(2, '0')}`)
   }
 
   const isMesAtual =

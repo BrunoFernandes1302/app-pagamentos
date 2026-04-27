@@ -17,6 +17,10 @@ const MESES = [
 ]
 
 type ProgressaoComPrestador = ProgressaoSalarial & {
+  prestadores: { nome: string; contrato: TipoContrato } | null
+}
+
+type ProgressaoAtiva = ProgressaoSalarial & {
   prestadores: { nome: string; contrato: TipoContrato }
 }
 
@@ -76,7 +80,9 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
     setMes(`${novoAno}-${String(novoMes).padStart(2, '0')}`)
   }
 
-  const progressoesAtivas = progressoes.filter((p) => p.status === 'ativo')
+  const progressoesAtivas = progressoes.filter(
+    (p): p is ProgressaoAtiva => p.status === 'ativo' && p.prestadores !== null
+  )
   const prestadoresComProgressao = new Set(progressoesAtivas.map((p) => p.prestador_id))
   const prestadoresSem = prestadores.filter((p) => !prestadoresComProgressao.has(p.id))
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Comissao, PrestadorResumido, MoedaSimples } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
@@ -59,6 +59,13 @@ export default function ComissoesList({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pagamentoContext, setPagamentoContext] = useState<PagamentoContext | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [copiadoId, setCopiadoId] = useState<string | null>(null)
+
+  function copiar(id: string, valor: string) {
+    navigator.clipboard.writeText(valor)
+    setCopiadoId(id)
+    setTimeout(() => setCopiadoId(null), 2000)
+  }
   const { rate } = useExchangeRate()
 
   // Filtros
@@ -335,6 +342,16 @@ export default function ComissoesList({
                                 {info.rede}
                               </span>
                             )}
+                            <button
+                              onClick={() => copiar(cp.id, info.val!)}
+                              title="Copiar"
+                              className="shrink-0 rounded p-0.5 hover:bg-muted transition-colors"
+                            >
+                              {copiadoId === cp.id
+                                ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                : <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                              }
+                            </button>
                           </div>
                         ) : (
                           <p className="mt-1 text-xs text-amber-600">

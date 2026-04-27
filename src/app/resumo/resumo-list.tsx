@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import type { TipoContrato, MoedaSimples } from '@/lib/types'
 import RegistrarPagamentoSalarioDialog, { type SalarioPagamentoContext } from './registrar-pagamento-dialog'
 
 interface Parcela {
+  id: string
   valor: number
   moeda: string
 }
@@ -69,6 +70,8 @@ type Filtro = 'pendentes' | 'pagas'
 export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
   const { rate } = useExchangeRate()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const [diasMap, setDiasMap] = useState<Record<string, number>>(
     () => Object.fromEntries(items.map(i => [i.id, 30]))
@@ -322,6 +325,7 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
                             rate: rate ?? null,
                             dias,
                             defaultMes,
+                            parcelaIds: item.parcelas.map(p => p.id),
                           })}
                           className="rounded-lg bg-teal-50 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
                         >
@@ -340,9 +344,14 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
 
       <RegistrarPagamentoSalarioDialog
         context={pagamentoCtx}
-        onClose={() => {
+        onClose={(mesRegistrado) => {
           setPagamentoCtx(null)
-          router.refresh()
+          if (mesRegistrado) {
+            router.replace(`/resumo?mes=${mesRegistrado}`)
+          } else {
+            const qs = searchParams.toString()
+            router.replace(pathname + (qs ? `?${qs}` : ''))
+          }
         }}
       />
     </>

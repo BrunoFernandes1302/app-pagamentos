@@ -1,19 +1,36 @@
 import Link from 'next/link'
 import { ArrowLeft, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { format, startOfMonth } from 'date-fns'
+import { differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { aplicarProgressoes } from '@/app/progressao-salarial/actions'
+import MesSelector from '@/app/historico/mes-selector'
 import ResumoList from './resumo-list'
 
-export default async function ResumoPage() {
+function getMesAtual() {
+  return format(startOfMonth(new Date()), 'yyyy-MM')
+}
+
+function validarMes(mes: string | undefined): string {
+  if (!mes) return getMesAtual()
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return mes
+  return getMesAtual()
+}
+
+export default async function ResumoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>
+}) {
   await aplicarProgressoes()
 
+  const { mes } = await searchParams
+  const mesSelecionado = validarMes(mes) // 'YYYY-MM'
   const supabase = await createClient()
-  const mesAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  const mesLabel = format(startOfMonth(new Date()), "MMMM 'de' yyyy", { locale: ptBR })
+  const mesAtual = `${mesSelecionado}-01`
+  const mesLabel = format(parseISO(mesAtual), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }] = await Promise.all([
+  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }] = await Promise.all([
     supabase
       .from('prestadores')
       .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix')
@@ -28,15 +45,30 @@ export default async function ResumoPage() {
       .select('prestador_id')
       .eq('tipo', 'salario')
       .eq('mes_referencia', mesAtual),
+    supabase
+      .from('progressao_salarial')
+      .select('prestador_id, salario_inicial, incremento, salario_alvo, mes_inicio')
+      .eq('status', 'ativo'),
   ])
 
+  const mesSelDate = parseISO(mesAtual)
+  const progressaoMap = new Map<string, number>()
+  for (const prog of progressoes ?? []) {
+    const mesInicioDate = parseISO(prog.mes_inicio)
+    const n = differenceInMonths(mesSelDate, mesInicioDate)
+    const salario = n < 0
+      ? prog.salario_inicial
+      : Math.min(prog.salario_inicial + prog.incremento * (n + 1), prog.salario_alvo)
+    progressaoMap.set(prog.prestador_id, salario)
+  }
+
   const empIds = empAtivos?.map(e => e.id) ?? []
-  let parcelasRaw: { emprestimo_id: string; valor: number; moeda: string }[] = []
+  let parcelasRaw: { id: string; emprestimo_id: string; valor: number; moeda: string }[] = []
 
   if (empIds.length > 0) {
     const { data } = await supabase
       .from('parcelas_emprestimo')
-      .select('emprestimo_id, valor, moeda')
+      .select('id, emprestimo_id, valor, moeda')
       .eq('mes_referencia', mesAtual)
       .in('status', ['pendente', 'adiantada'])
       .in('emprestimo_id', empIds)
@@ -44,12 +76,12 @@ export default async function ResumoPage() {
   }
 
   const empMap = new Map(empAtivos?.map(e => [e.id, e.prestador_id]) ?? [])
-  const parcelasByPrestador = new Map<string, { valor: number; moeda: string }[]>()
+  const parcelasByPrestador = new Map<string, { id: string; valor: number; moeda: string }[]>()
   for (const p of parcelasRaw) {
     const prestadorId = empMap.get(p.emprestimo_id)
     if (!prestadorId) continue
     if (!parcelasByPrestador.has(prestadorId)) parcelasByPrestador.set(prestadorId, [])
-    parcelasByPrestador.get(prestadorId)!.push({ valor: p.valor, moeda: p.moeda })
+    parcelasByPrestador.get(prestadorId)!.push({ id: p.id, valor: p.valor, moeda: p.moeda })
   }
 
   const pagoIds = (pagosNoMes ?? [])
@@ -58,6 +90,7 @@ export default async function ResumoPage() {
 
   const items = (prestadores ?? []).map(p => ({
     ...p,
+    salario_base: progressaoMap.get(p.id) ?? p.salario_base,
     parcelas: parcelasByPrestador.get(p.id) ?? [],
   }))
 
@@ -78,18 +111,21 @@ export default async function ResumoPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-fit rounded-lg p-3 bg-teal-50">
-            <Receipt className="h-6 w-6 text-teal-600" />
+        <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-fit rounded-lg p-3 bg-teal-50">
+              <Receipt className="h-6 w-6 text-teal-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground capitalize">
+                Resumo de Pagamentos
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Salário com deduções de empréstimo e ajuste de dias trabalhados
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground capitalize">
-              Resumo de Pagamentos — {mesLabel}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Salário atual com deduções de empréstimo e ajuste de dias trabalhados
-            </p>
-          </div>
+          <MesSelector mesAtual={mesSelecionado} basePath="/resumo" />
         </div>
 
         <ResumoList items={items} pagoIds={pagoIds} mesAtual={mesAtual} />

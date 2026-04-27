@@ -19,6 +19,7 @@ export interface SalarioPagamentoContext {
   rate: number | null
   dias: number
   defaultMes: string // 'YYYY-MM'
+  parcelaIds: string[]
 }
 
 const MESES = [
@@ -42,7 +43,7 @@ function FieldError({ message }: { message?: string }) {
 
 interface Props {
   context: SalarioPagamentoContext | null
-  onClose: () => void
+  onClose: (mesRegistrado?: string) => void
 }
 
 export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Props) {
@@ -96,8 +97,9 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
           moeda: context.moeda,
           mesReferencia: `${selectedMes}-01`,
           descricao,
+          parcelaIds: context.parcelaIds,
         })
-        onClose()
+        onClose(selectedMes)
       } catch (e) {
         setServerError(e instanceof Error ? e.message : 'Erro ao registrar pagamento.')
       }
@@ -113,7 +115,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={() => onClose()} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-background shadow-xl">
 
@@ -121,7 +123,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background px-6 py-4">
             <h2 className="text-lg font-semibold text-foreground">Registrar Pagamento de Salário</h2>
             <button
-              onClick={onClose}
+              onClick={() => onClose()}
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors"
             >
               <X className="h-5 w-5" />
@@ -229,7 +231,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
             <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-background px-6 py-4">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => onClose()}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
               >
                 Cancelar

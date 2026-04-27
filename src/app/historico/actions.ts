@@ -48,6 +48,42 @@ export async function excluirPagamento(
     if (errReset) throw new Error('Erro ao excluir pagamento.')
   }
 
+  if (tipo === 'salario') {
+    const { data: hist } = await supabase
+      .from('historico_pagamentos')
+      .select('parcelas_emprestimo_ids')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single()
+
+    const storedIds: string[] = hist?.parcelas_emprestimo_ids ?? []
+
+    if (storedIds.length > 0) {
+      const { data: parcelasInfo } = await supabase
+        .from('parcelas_emprestimo')
+        .select('emprestimo_id')
+        .in('id', storedIds)
+        .eq('organization_id', orgId)
+
+      const emprestimoIds = [...new Set(parcelasInfo?.map(p => p.emprestimo_id) ?? [])]
+
+      await supabase
+        .from('parcelas_emprestimo')
+        .update({ status: 'pendente', tipo_pagamento: null, data_pagamento: null })
+        .in('id', storedIds)
+        .eq('organization_id', orgId)
+
+      if (emprestimoIds.length > 0) {
+        await supabase
+          .from('emprestimos')
+          .update({ status: 'ativo' })
+          .in('id', emprestimoIds)
+          .eq('status', 'quitado')
+          .eq('organization_id', orgId)
+      }
+    }
+  }
+
   const { error } = await supabase
     .from('historico_pagamentos')
     .delete()
@@ -57,4 +93,8 @@ export async function excluirPagamento(
 
   revalidatePath('/historico')
   if (tipo === 'comissao') revalidatePath('/comissoes')
+  if (tipo === 'salario') {
+    revalidatePath('/emprestimos')
+    revalidatePath('/resumo')
+  }
 }

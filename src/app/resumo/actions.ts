@@ -12,6 +12,7 @@ interface RegistrarPagamentoSalarioInput {
   moeda: MoedaSimples
   mesReferencia: string
   descricao: string
+  parcelaIds: string[]
 }
 
 export async function registrarPagamentoSalario(input: RegistrarPagamentoSalarioInput) {
@@ -30,10 +31,49 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
     comprovante: null,
     mes_referencia: input.mesReferencia,
     organization_id: orgId,
+    parcelas_emprestimo_ids: input.parcelaIds.length > 0 ? input.parcelaIds : null,
   })
 
   if (error) throw new Error('Erro ao registrar pagamento.')
 
+  if (input.parcelaIds.length > 0) {
+    const { data: parcelasInfo } = await supabase
+      .from('parcelas_emprestimo')
+      .select('emprestimo_id')
+      .in('id', input.parcelaIds)
+      .eq('organization_id', orgId)
+
+    const emprestimoIds = [...new Set(parcelasInfo?.map(p => p.emprestimo_id) ?? [])]
+
+    await supabase
+      .from('parcelas_emprestimo')
+      .update({
+        status: 'paga',
+        tipo_pagamento: 'desconto_salario',
+        data_pagamento: new Date().toISOString(),
+      })
+      .in('id', input.parcelaIds)
+      .eq('organization_id', orgId)
+
+    for (const empId of emprestimoIds) {
+      const { data: pendentes } = await supabase
+        .from('parcelas_emprestimo')
+        .select('id')
+        .eq('emprestimo_id', empId)
+        .in('status', ['pendente', 'adiantada'])
+        .eq('organization_id', orgId)
+
+      if (!pendentes || pendentes.length === 0) {
+        await supabase
+          .from('emprestimos')
+          .update({ status: 'quitado' })
+          .eq('id', empId)
+          .eq('organization_id', orgId)
+      }
+    }
+  }
+
   revalidatePath('/resumo')
   revalidatePath('/historico')
+  revalidatePath('/emprestimos')
 }
