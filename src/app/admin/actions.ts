@@ -123,6 +123,36 @@ export async function excluirOrganizacao(
   revalidatePath('/admin')
 }
 
+export async function editarUsuario(
+  userId: string,
+  data: {
+    nome: string
+    role: 'super_admin' | 'admin' | 'member'
+    organization_id: string
+    password?: string
+  },
+): Promise<{ error: string } | undefined> {
+  await requireSuperAdmin()
+
+  const adminClient = createAdminClient()
+
+  const { error: profileError } = await adminClient
+    .from('profiles')
+    .update({ nome: data.nome.trim(), role: data.role, organization_id: data.organization_id })
+    .eq('id', userId)
+
+  if (profileError) return { error: 'Erro ao atualizar perfil.' }
+
+  if (data.password && data.password.length >= 8) {
+    const { error: pwError } = await adminClient.auth.admin.updateUserById(userId, {
+      password: data.password,
+    })
+    if (pwError) return { error: 'Perfil atualizado, mas erro ao trocar senha.' }
+  }
+
+  revalidatePath('/admin/usuarios')
+}
+
 export async function excluirUsuario(
   userId: string,
   adminPassword: string,

@@ -28,11 +28,17 @@ export async function getUserProfile() {
     .single()
 
   if (!profile) redirect('/auth/login')
-  return { ...profile, email: user.email! }
+  return { id: user.id, ...profile, email: user.email! }
 }
 
 export async function requireSuperAdmin() {
   const profile = await getUserProfile()
   if (profile.role !== 'super_admin') redirect('/')
+  return profile
+}
+
+export async function requireOrgAdmin() {
+  const profile = await getUserProfile()
+  if (profile.role !== 'admin' && profile.role !== 'super_admin') redirect('/')
   return profile
 }

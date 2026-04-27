@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CriarUsuarioForm } from './criar-usuario-form'
 import { ExcluirUsuarioBtn } from './excluir-usuario-btn'
+import { EditarUsuarioBtn } from './editar-usuario-btn'
 
 type UserRow = {
   id: string
@@ -57,7 +58,16 @@ export default async function UsuariosPage() {
                   <p className="text-xs text-muted-foreground">{u.email}</p>
                   <p className="text-xs text-muted-foreground">{u.org_nome}</p>
                 </div>
-                <ExcluirUsuarioBtn userId={u.id} nome={u.nome} />
+                <div className="flex items-center gap-1">
+                  <EditarUsuarioBtn
+                    userId={u.id}
+                    nome={u.nome}
+                    role={u.role}
+                    organizationId={u.organization_id}
+                    orgs={orgs ?? []}
+                  />
+                  <ExcluirUsuarioBtn userId={u.id} nome={u.nome} />
+                </div>
               </div>
             ))}
           </div>

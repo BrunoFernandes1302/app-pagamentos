@@ -8,6 +8,7 @@ import {
   Receipt,
   CalendarDays,
   ChevronRight,
+  Settings,
 } from "lucide-react";
 
 const modules = [
@@ -66,13 +67,15 @@ export default async function Home() {
   const { data: { user } } = await supabase.auth.getUser();
 
   let orgNome = '';
+  let userRole = '';
   if (user) {
     const { data } = await supabase
       .from('profiles')
-      .select('organizations(nome)')
+      .select('role, organizations(nome)')
       .eq('id', user.id)
       .single();
     orgNome = (data?.organizations as unknown as { nome: string } | null)?.nome ?? '';
+    userRole = data?.role ?? '';
   }
 
   return (
@@ -118,6 +121,29 @@ export default async function Home() {
             </Link>
           ))}
         </div>
+
+        {(userRole === 'admin' || userRole === 'super_admin') && (
+          <div className="mt-8 pt-8 border-t border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Administração
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/org-admin"
+                className="group flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 transition-shadow hover:shadow-md"
+              >
+                <div className="w-fit rounded-lg p-2 bg-slate-100">
+                  <Settings className="h-4 w-4 text-slate-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Gerenciar Organização</p>
+                  <p className="text-xs text-muted-foreground">Usuários e acessos</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground ml-2 group-hover:text-foreground transition-colors" />
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
