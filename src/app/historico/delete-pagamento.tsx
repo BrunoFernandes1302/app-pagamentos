@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { Undo2, Loader2 } from 'lucide-react'
@@ -48,7 +48,7 @@ export default function DeletePagamento({ id, tipo, comissaoPrestadorId }: Props
     <button
       onClick={() => setConfirming(true)}
       title={isComissao ? 'Reverter para comissões' : 'Reverter para resumo'}
-      className="shrink-0 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+      className="shrink-0 flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-400 hover:bg-amber-500/20 transition-colors"
     >
       <Undo2 className="h-3.5 w-3.5" />
       Reverter

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { X } from 'lucide-react'
 import { addMonths, format, parseISO } from 'date-fns'
@@ -72,7 +72,7 @@ export default function CronogramaDialog({ progressao, onClose }: Props) {
                   return (
                     <tr
                       key={i}
-                      className={`border-b border-border last:border-0 ${isFinal ? 'bg-emerald-50/60' : ''}`}
+                      className={`border-b border-border last:border-0 ${isFinal ? 'bg-emerald-500/10/60' : ''}`}
                     >
                       <td className="px-5 py-2.5 text-foreground capitalize">
                         {format(mes, 'MMM/yyyy', { locale: ptBR })}
@@ -80,7 +80,7 @@ export default function CronogramaDialog({ progressao, onClose }: Props) {
                       <td className="px-5 py-2.5 text-right font-mono font-medium text-foreground">
                         {formatValor(salario, contrato)}
                       </td>
-                      <td className={`px-5 py-2.5 text-right font-mono text-xs ${isCap ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      <td className={`px-5 py-2.5 text-right font-mono text-xs ${isCap ? 'text-amber-400' : 'text-emerald-400'}`}>
                         +{formatValor(incrementoReal, contrato)}
                         {isCap && <span className="ml-1 text-amber-500">(limite)</span>}
                       </td>

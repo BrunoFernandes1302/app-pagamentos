@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
@@ -159,7 +159,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-amber-400">
                     Dados de pagamento em {context.moeda} não cadastrados para este prestador.
                   </p>
                 )}
@@ -184,7 +184,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
                   </p>
                 )}
                 {context.valorSugerido === null && (
-                  <p className="mt-1 text-xs text-amber-600">
+                  <p className="mt-1 text-xs text-amber-400">
                     Cotação indisponível. Informe o valor manualmente.
                   </p>
                 )}

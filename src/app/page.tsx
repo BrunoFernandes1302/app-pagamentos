@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   Percent,
@@ -17,48 +17,48 @@ const modules = [
     icon: Percent,
     title: "Comissões",
     description: "Gerencie e calcule comissões dos prestadores de serviço.",
-    iconColor: "text-emerald-600",
-    iconBg: "bg-emerald-50",
+    iconColor: "text-emerald-400",
+    iconBg: "bg-emerald-500/10",
   },
   {
     href: "/emprestimos",
     icon: Landmark,
     title: "Empréstimos",
     description: "Controle de empréstimos concedidos aos prestadores.",
-    iconColor: "text-blue-600",
-    iconBg: "bg-blue-50",
+    iconColor: "text-blue-400",
+    iconBg: "bg-blue-500/10",
   },
   {
     href: "/progressao-salarial",
     icon: TrendingUp,
     title: "Progressão Salarial",
     description: "Acompanhe o aumento progressivo de salário dos prestadores.",
-    iconColor: "text-violet-600",
-    iconBg: "bg-violet-50",
+    iconColor: "text-violet-400",
+    iconBg: "bg-violet-500/10",
   },
   {
     href: "/prestadores",
     icon: Users,
     title: "Prestadores",
     description: "Cadastre, edite e remova prestadores de serviço.",
-    iconColor: "text-orange-600",
-    iconBg: "bg-orange-50",
+    iconColor: "text-orange-400",
+    iconBg: "bg-orange-500/10",
   },
   {
     href: "/resumo",
     icon: Receipt,
     title: "Resumo de Pagamentos",
     description: "Visualize o pagamento antes e após todas as atribuições.",
-    iconColor: "text-teal-600",
-    iconBg: "bg-teal-50",
+    iconColor: "text-teal-400",
+    iconBg: "bg-teal-500/10",
   },
   {
     href: "/historico",
     icon: CalendarDays,
     title: "Histórico de Pagamentos",
     description: "Consulte o histórico de folha e comissões por período.",
-    iconColor: "text-slate-600",
-    iconBg: "bg-slate-100",
+    iconColor: "text-slate-400",
+    iconBg: "bg-slate-500/10",
   },
 ];
 
@@ -132,8 +132,8 @@ export default async function Home() {
                 href="/org-admin"
                 className="group flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 transition-shadow hover:shadow-md"
               >
-                <div className="w-fit rounded-lg p-2 bg-slate-100">
-                  <Settings className="h-4 w-4 text-slate-600" />
+                <div className="w-fit rounded-lg p-2 bg-slate-500/10">
+                  <Settings className="h-4 w-4 text-slate-400" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">Gerenciar Organização</p>

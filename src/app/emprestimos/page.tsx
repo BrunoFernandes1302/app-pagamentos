@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+﻿import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
 import Link from 'next/link'
 import { ArrowLeft, Landmark } from 'lucide-react'
@@ -48,8 +48,8 @@ export default async function EmprestimosPage() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-fit rounded-lg p-3 bg-blue-50">
-            <Landmark className="h-6 w-6 text-blue-600" />
+          <div className="w-fit rounded-lg p-3 bg-blue-500/10">
+            <Landmark className="h-6 w-6 text-blue-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Empréstimos</h1>

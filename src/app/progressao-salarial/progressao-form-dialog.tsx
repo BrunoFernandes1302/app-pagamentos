@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
@@ -199,7 +199,7 @@ export default function ProgressaoFormDialog({
                     ))}
                   </select>
                   {prestadoresDisponiveis.length === 0 && (
-                    <p className="mt-1 text-xs text-amber-600">
+                    <p className="mt-1 text-xs text-amber-400">
                       Todos os prestadores já possuem uma progressão ativa.
                     </p>
                   )}
@@ -276,7 +276,7 @@ export default function ProgressaoFormDialog({
 
               {/* Preview */}
               {preview && (
-                <div className="rounded-lg bg-violet-50 border border-violet-100 px-4 py-3 space-y-1">
+                <div className="rounded-lg bg-violet-500/10 border border-violet-100 px-4 py-3 space-y-1">
                   <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">
                     Previsão
                   </p>

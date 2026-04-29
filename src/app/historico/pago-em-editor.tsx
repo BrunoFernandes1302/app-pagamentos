@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { Pencil, Check, X, Loader2 } from 'lucide-react'
@@ -46,7 +46,7 @@ export default function PagoEmEditor({ id, pagoEm }: { id: string; pagoEm: strin
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-40 transition-colors"
+          className="rounded p-1 text-emerald-400 hover:bg-emerald-500/100/10 disabled:opacity-40 transition-colors"
           title="Salvar"
         >
           {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}

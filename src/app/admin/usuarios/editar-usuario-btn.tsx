@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { Pencil, Loader2, X } from 'lucide-react'
@@ -147,7 +147,7 @@ export function EditarUsuarioBtn({ userId, nome, role, organizationId, orgs }: P
                 </p>
               )}
               {success && (
-                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
                   Usuário atualizado.
                 </p>
               )}

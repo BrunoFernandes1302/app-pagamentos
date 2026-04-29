@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
@@ -41,7 +41,7 @@ export default function CotacaoWidget() {
             R$ {rate?.toFixed(4)}
           </span>
           {pctChange !== null && (
-            <span className={`text-xs font-medium ${pctChange >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+            <span className={`text-xs font-medium ${pctChange >= 0 ? 'text-emerald-400' : 'text-red-500'}`}>
               {pctChange >= 0 ? '▲' : '▼'} {Math.abs(pctChange).toFixed(2)}%
             </span>
           )}

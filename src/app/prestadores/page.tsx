@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { ArrowLeft, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import PrestadoresList from './prestadores-list'
@@ -28,8 +28,8 @@ export default async function PrestadoresPage() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-fit rounded-lg p-3 bg-orange-50">
-            <Users className="h-6 w-6 text-orange-600" />
+          <div className="w-fit rounded-lg p-3 bg-orange-500/10">
+            <Users className="h-6 w-6 text-orange-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Prestadores</h1>

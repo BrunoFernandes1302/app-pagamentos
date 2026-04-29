@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
@@ -31,9 +31,9 @@ interface Props {
 }
 
 const CONTRATO_BADGE: Record<TipoContrato, string> = {
-  USDT:       'bg-emerald-100 text-emerald-800',
+  USDT:       'bg-emerald-500/100/15 text-emerald-300',
   'USDT/BRL': 'bg-blue-100 text-blue-800',
-  BRL:        'bg-slate-100 text-slate-700',
+  BRL:        'bg-slate-500/10 text-slate-300',
 }
 
 function moedaBase(contrato: TipoContrato): MoedaSimples {
@@ -126,7 +126,7 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
         >
           Pendentes
           {totalPendentes > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-xs">
+            <span className="ml-1.5 rounded-full bg-amber-500/15 text-amber-400 px-1.5 py-0.5 text-xs">
               {totalPendentes}
             </span>
           )}
@@ -141,7 +141,7 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
         >
           Pagas
           {totalPagas > 0 && (
-            <span className="ml-1.5 rounded-full bg-emerald-100 text-emerald-700 px-1.5 py-0.5 text-xs">
+            <span className="ml-1.5 rounded-full bg-emerald-500/100/15 text-emerald-400 px-1.5 py-0.5 text-xs">
               {totalPagas}
             </span>
           )}
@@ -308,7 +308,7 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
                     {/* Ação */}
                     <td className="px-4 py-3 text-center">
                       {jaPago ? (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/100/15 text-emerald-300">
                           <CheckCircle2 className="h-3 w-3" />
                           Pago
                         </span>
@@ -327,7 +327,7 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
                             defaultMes,
                             parcelaIds: item.parcelas.map(p => p.id),
                           })}
-                          className="rounded-lg bg-teal-50 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
+                          className="rounded-lg bg-teal-500/10 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-500/100/20 transition-colors"
                         >
                           Registrar
                         </button>

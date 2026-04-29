@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useActionState } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -33,7 +33,7 @@ export function CriarOrgForm() {
         <p className="text-xs text-destructive">{state.error}</p>
       )}
       {state?.success && (
-        <p className="text-xs text-emerald-600">{state.success}</p>
+        <p className="text-xs text-emerald-400">{state.success}</p>
       )}
     </form>
   )

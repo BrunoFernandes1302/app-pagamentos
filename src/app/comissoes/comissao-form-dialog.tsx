@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
@@ -86,7 +86,7 @@ function PaymentInfo({
 
   if (!val)
     return (
-      <p className="mt-2 text-xs text-amber-600">
+      <p className="mt-2 text-xs text-amber-400">
         Dados de pagamento em {moeda} não cadastrados para este prestador.
       </p>
     )

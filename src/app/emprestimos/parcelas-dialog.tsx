@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { X, Loader2, ChevronsRight, Banknote, CheckCircle2 } from 'lucide-react'
@@ -8,8 +8,8 @@ import { pagarParcela, adiantarParcela, pagamentoAvulso } from './actions'
 import type { Emprestimo, ParcelaEmprestimo, StatusParcela } from '@/lib/types'
 
 const STATUS: Record<StatusParcela, { label: string; cls: string }> = {
-  pendente:      { label: 'Pendente',    cls: 'bg-amber-100 text-amber-700' },
-  paga:          { label: 'Paga',        cls: 'bg-emerald-100 text-emerald-700' },
+  pendente:      { label: 'Pendente',    cls: 'bg-amber-500/15 text-amber-400' },
+  paga:          { label: 'Paga',        cls: 'bg-emerald-500/100/15 text-emerald-400' },
   adiantada:     { label: 'Adiantada',   cls: 'bg-blue-100 text-blue-700' },
   quitada_avulso:{ label: 'Quitada',     cls: 'bg-purple-100 text-purple-700' },
 }
@@ -174,7 +174,7 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
             <span>Restante: {fmtValor(emprestimo.valor_parcela * pendentes.length, emprestimo.moeda)}</span>
           )}
           {emprestimo.status === 'quitado' && (
-            <span className="text-emerald-600 font-medium">Empréstimo quitado</span>
+            <span className="text-emerald-400 font-medium">Empréstimo quitado</span>
           )}
         </div>
       </div>

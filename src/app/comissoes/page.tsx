@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { ArrowLeft, Percent } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
@@ -48,8 +48,8 @@ export default async function ComissoesPage() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-fit rounded-lg p-3 bg-emerald-50">
-            <Percent className="h-6 w-6 text-emerald-600" />
+          <div className="w-fit rounded-lg p-3 bg-emerald-500/10">
+            <Percent className="h-6 w-6 text-emerald-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Comissões</h1>

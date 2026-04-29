@@ -1,8 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check } from 'lucide-react'
-import { format } from 'date-fns'
+import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays } from 'lucide-react'
 import type { Comissao, PrestadorResumido, MoedaSimples } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import { excluirComissao } from './actions'
@@ -19,6 +18,12 @@ function formatMesPeriodo(yyyyMm: string) {
   return `${MESES[mes - 1]} ${ano}`
 }
 
+const SEM_PREVISAO = 'sem_previsao'
+
+function getMesKey(c: Comissao) {
+  return c.previsao_pagamento ? c.previsao_pagamento.substring(0, 7) : SEM_PREVISAO
+}
+
 function calcularComissao(
   receita: number,
   percentual: number,
@@ -33,7 +38,7 @@ function calcularComissao(
 }
 
 function formatValor(value: number | null, moeda: MoedaSimples) {
-  if (value === null) return <span className="text-amber-600 text-xs">aguardando cotação</span>
+  if (value === null) return <span className="text-amber-400 text-xs">aguardando cotação</span>
   if (moeda === 'USDT')
     return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} USDT`
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
@@ -46,6 +51,7 @@ function formatReceita(value: number, moeda: string) {
 }
 
 type StatusFiltro = 'todas' | 'pendentes' | 'pagas'
+type Ordenacao = 'data' | 'alfabetica'
 
 export default function ComissoesList({
   comissoes,
@@ -71,7 +77,7 @@ export default function ComissoesList({
   // Filtros
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('pendentes')
   const [prestadorFiltro, setPrestadorFiltro] = useState('')
-  const [periodoFiltro, setPeriodoFiltro] = useState('')
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('data')
 
   const prestadoresFiltro = useMemo(() => {
     const map = new Map<string, string>()
@@ -81,12 +87,6 @@ export default function ComissoesList({
       })
     )
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]))
-  }, [comissoes])
-
-  const periodos = useMemo(() => {
-    const set = new Set<string>()
-    comissoes.forEach(c => set.add(c.created_at.substring(0, 7)))
-    return Array.from(set).sort().reverse()
   }, [comissoes])
 
   const comissoesFiltradas = useMemo(() => {
@@ -99,10 +99,42 @@ export default function ComissoesList({
       .filter(c =>
         !prestadorFiltro || c.comissao_prestadores.some(cp => cp.prestador_id === prestadorFiltro)
       )
-      .filter(c =>
-        !periodoFiltro || c.created_at.startsWith(periodoFiltro)
-      )
-  }, [comissoes, statusFiltro, prestadorFiltro, periodoFiltro])
+  }, [comissoes, statusFiltro, prestadorFiltro])
+
+  const grupos = useMemo(() => {
+    const map = new Map<string, Comissao[]>()
+    for (const c of comissoesFiltradas) {
+      const key = getMesKey(c)
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(c)
+    }
+    // Sort within each group
+    for (const [, items] of map) {
+      if (ordenacao === 'alfabetica') {
+        items.sort((a, b) => {
+          const nameA = [...a.comissao_prestadores]
+            .map(cp => cp.prestadores?.nome ?? '')
+            .sort((x, y) => x.localeCompare(y, 'pt-BR'))[0] ?? ''
+          const nameB = [...b.comissao_prestadores]
+            .map(cp => cp.prestadores?.nome ?? '')
+            .sort((x, y) => x.localeCompare(y, 'pt-BR'))[0] ?? ''
+          return nameA.localeCompare(nameB, 'pt-BR')
+        })
+      } else {
+        items.sort((a, b) => {
+          const da = a.previsao_pagamento ?? a.created_at
+          const db = b.previsao_pagamento ?? b.created_at
+          return da.localeCompare(db)
+        })
+      }
+    }
+    // Sort months chronologically (oldest first), sem_previsao at the end
+    return Array.from(map.entries()).sort((a, b) => {
+      if (a[0] === SEM_PREVISAO) return 1
+      if (b[0] === SEM_PREVISAO) return -1
+      return a[0].localeCompare(b[0])
+    })
+  }, [comissoesFiltradas, ordenacao])
 
   function openCreate() {
     setEditingComissao(null)
@@ -160,6 +192,32 @@ export default function ComissoesList({
             ))}
           </div>
 
+          {/* Ordenação */}
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setOrdenacao('data')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                ordenacao === 'data'
+                  ? 'bg-foreground text-background'
+                  : 'bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Por data
+            </button>
+            <button
+              onClick={() => setOrdenacao('alfabetica')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                ordenacao === 'alfabetica'
+                  ? 'bg-foreground text-background'
+                  : 'bg-card text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              <ArrowDownAZ className="h-3.5 w-3.5" />
+              A→Z
+            </button>
+          </div>
+
           {/* Prestador */}
           {prestadoresFiltro.length > 1 && (
             <select
@@ -174,22 +232,8 @@ export default function ComissoesList({
             </select>
           )}
 
-          {/* Período */}
-          {periodos.length > 1 && (
-            <select
-              value={periodoFiltro}
-              onChange={e => setPeriodoFiltro(e.target.value)}
-              className={selectClass}
-            >
-              <option value="">Todos os períodos</option>
-              {periodos.map(p => (
-                <option key={p} value={p}>{formatMesPeriodo(p)}</option>
-              ))}
-            </select>
-          )}
-
           {/* Contador */}
-          {(statusFiltro !== 'todas' || prestadorFiltro || periodoFiltro) && (
+          {(statusFiltro !== 'todas' || prestadorFiltro) && (
             <span className="text-xs text-muted-foreground">
               {comissoesFiltradas.length} de {comissoes.length}
             </span>
@@ -208,45 +252,53 @@ export default function ComissoesList({
           <p className="text-sm text-muted-foreground">Nenhuma comissão encontrada com esses filtros.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {comissoesFiltradas.map((c) => {
+        <div className="space-y-8">
+          {grupos.map(([mesKey, itens]) => (
+            <div key={mesKey}>
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-sm font-semibold text-foreground">
+                  {mesKey === SEM_PREVISAO ? 'Sem previsão de pagamento' : formatMesPeriodo(mesKey)}
+                </h2>
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">{itens.length} {itens.length === 1 ? 'comissão' : 'comissões'}</span>
+              </div>
+              <div className="space-y-3">
+          {itens.map((c) => {
             const isDeleting = deletingId === c.id
             const todosPageos = c.comissao_prestadores.every(cp => cp.pago)
 
             return (
               <div key={c.id} className="rounded-xl border border-border bg-card overflow-hidden">
 
-                {/* Cabeçalho */}
-                <div className="flex items-start justify-between px-5 py-4 border-b border-border">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <span className="font-semibold text-foreground">{c.tipo}</span>
-                    <span className="text-xs text-muted-foreground">
-                      Registrada: {format(new Date(c.created_at), 'dd/MM/yyyy')}
-                    </span>
-                    {c.previsao_pagamento && (
-                      <span className="text-xs text-muted-foreground">
-                        Prev. pag.: {(() => {
-                          const [a, m, d] = c.previsao_pagamento.split('-')
-                          return `${d}/${m}/${a}`
-                        })()}
+                {/* Cabeçalho unificado */}
+                <div className="flex items-start justify-between px-5 py-3 border-b border-border gap-4">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    {/* 1. Prestadores — primeiro item */}
+                    <p className="font-semibold text-foreground leading-snug">
+                      {c.comissao_prestadores.map(cp => cp.prestadores?.nome ?? '(Prestador removido)').join(' · ')}
+                    </p>
+                    {/* 2. Meta: tipo + receita + status (sem datas — vencimento vai na linha de pagamento) */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                        {c.tipo}
                       </span>
-                    )}
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      c.moeda_venda === 'USDT'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      Receita: {formatReceita(c.receita_ether, c.moeda_venda)}
-                    </span>
-                    {todosPageos && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Pago
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        c.moeda_venda === 'USDT' ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/100/15 text-emerald-300'
+                      }`}>
+                        Receita: {formatReceita(c.receita_ether, c.moeda_venda)}
                       </span>
-                    )}
+                      {todosPageos && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/100/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Pago
+                        </span>
+                      )}
+                    </div>
+                    {/* 3. Descrição compacta */}
+                    <p className="text-xs text-muted-foreground">{c.descricao}</p>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 ml-4">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openEdit(c)}
                       title="Editar"
@@ -254,7 +306,6 @@ export default function ComissoesList({
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
-
                     {isDeleting ? (
                       <>
                         <button
@@ -275,7 +326,7 @@ export default function ComissoesList({
                       <button
                         onClick={() => handleDeleteClick(c.id)}
                         title="Excluir"
-                        className="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-destructive transition-colors"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-destructive transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -283,12 +334,7 @@ export default function ComissoesList({
                   </div>
                 </div>
 
-                {/* Descrição */}
-                <div className="px-5 py-3 text-sm text-muted-foreground border-b border-border">
-                  {c.descricao}
-                </div>
-
-                {/* Prestadores */}
+                {/* Prestadores — detalhes de pagamento */}
                 <div className="divide-y divide-border">
                   {c.comissao_prestadores.map((cp) => {
                     const valorAtual = calcularComissao(
@@ -298,73 +344,68 @@ export default function ComissoesList({
                       cp.moeda_recebimento,
                       rate,
                     )
-                    const precisaConversao = c.moeda_venda !== cp.moeda_recebimento
                     const info =
                       cp.moeda_recebimento === 'BRL'
                         ? { val: cp.prestadores?.chave_pix ?? null, rede: null }
                         : { val: cp.prestadores?.carteira_cripto ?? null, rede: cp.prestadores?.rede_cripto ?? null }
 
                     return (
-                      <div key={cp.id} className="px-5 py-4">
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                          <span className="font-medium text-sm text-foreground">
-                            {cp.prestadores?.nome ?? '(Prestador removido)'}
+                      <div key={cp.id} className="px-5 py-2.5 flex items-center gap-4 justify-between">
+                        {/* Esquerda: nome (se múltiplos) + comissão + a pagar */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                          {c.comissao_prestadores.length > 1 && (
+                            <span className="text-sm font-semibold text-foreground">
+                              {cp.prestadores?.nome ?? '(Prestador removido)'}
+                            </span>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            Comissão: <span className="font-medium text-foreground">{cp.percentual}%</span>
                           </span>
                           <span className="text-sm text-muted-foreground">
-                            {cp.percentual}% da receita{' → '}
-                            {cp.pago ? (
-                              <span className="font-semibold text-foreground">
-                                {formatValor(cp.valor_comissao, cp.moeda_recebimento)}
-                              </span>
-                            ) : (
-                              <span className="font-semibold text-foreground">
-                                {formatValor(valorAtual, cp.moeda_recebimento)}
-                              </span>
-                            )}
-                            {!cp.pago && precisaConversao && rate && (
-                              <span className="ml-1.5 text-xs text-muted-foreground">
-                                (R$ {rate.toFixed(4)}/USD)
-                              </span>
-                            )}
+                            A pagar:{' '}
+                            <span className="font-semibold text-foreground">
+                              {cp.pago
+                                ? formatValor(cp.valor_comissao, cp.moeda_recebimento)
+                                : formatValor(valorAtual, cp.moeda_recebimento)}
+                            </span>
                           </span>
                         </div>
 
-                        {info.val ? (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                            {cp.moeda_recebimento === 'BRL' ? (
-                              <QrCode className="h-3.5 w-3.5 shrink-0" />
-                            ) : (
-                              <Wallet className="h-3.5 w-3.5 shrink-0" />
-                            )}
-                            <span className="font-mono break-all">{info.val}</span>
-                            {info.rede && (
-                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-sans">
-                                {info.rede}
-                              </span>
-                            )}
-                            <button
-                              onClick={() => copiar(cp.id, info.val!)}
-                              title="Copiar"
-                              className="shrink-0 rounded p-0.5 hover:bg-muted transition-colors"
-                            >
-                              {copiadoId === cp.id
-                                ? <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                : <Copy className="h-3.5 w-3.5 text-muted-foreground" />
-                              }
-                            </button>
-                          </div>
-                        ) : (
-                          <p className="mt-1 text-xs text-amber-600">
-                            Dados de pagamento em {cp.moeda_recebimento} não cadastrados.
-                          </p>
-                        )}
-
-                        {/* Botão / badge de pagamento */}
-                        <div className="mt-3">
+                        {/* Direita: vencimento + carteira/pix + botão */}
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          {c.previsao_pagamento && (
+                            <span className="text-xs text-muted-foreground">
+                              Venc.: {(() => { const [a,m,d] = c.previsao_pagamento.split('-'); return `${d}/${m}/${a}` })()}
+                            </span>
+                          )}
+                          {info.val ? (
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              {cp.moeda_recebimento === 'BRL'
+                                ? <QrCode className="h-3.5 w-3.5 shrink-0" />
+                                : <Wallet className="h-3.5 w-3.5 shrink-0" />}
+                              <span className="font-mono">{info.val}</span>
+                              {info.rede && (
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-sans">{info.rede}</span>
+                              )}
+                              <button
+                                onClick={() => copiar(cp.id, info.val!)}
+                                title="Copiar"
+                                className="shrink-0 rounded p-0.5 hover:bg-muted transition-colors"
+                              >
+                                {copiadoId === cp.id
+                                  ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                  : <Copy className="h-3.5 w-3.5 text-muted-foreground" />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-amber-400">
+                              Dados de pagamento em {cp.moeda_recebimento} não cadastrados.
+                            </span>
+                          )}
                           {cp.pago ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/100/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
                               <CheckCircle2 className="h-3 w-3" />
-                              Pagamento registrado
+                              Pago
                             </span>
                           ) : (
                             <button
@@ -385,7 +426,7 @@ export default function ComissoesList({
                                   ? c.previsao_pagamento.substring(0, 7)
                                   : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
                               })}
-                              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors"
+                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/100/100/20 hover:border-emerald-500/50 transition-colors"
                             >
                               Registrar Pagamento
                             </button>
@@ -398,6 +439,9 @@ export default function ComissoesList({
               </div>
             )
           })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

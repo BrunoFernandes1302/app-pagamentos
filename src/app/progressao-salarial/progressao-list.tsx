@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -168,8 +168,8 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                 {/* Cabeçalho do card */}
                 <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-4 border-b border-border">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-fit rounded-lg p-2 bg-violet-50 shrink-0">
-                      <TrendingUp className="h-4 w-4 text-violet-600" />
+                    <div className="w-fit rounded-lg p-2 bg-violet-500/10 shrink-0">
+                      <TrendingUp className="h-4 w-4 text-violet-400" />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -177,9 +177,9 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                         <span
                           className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                             isConcluido && !progressaoNaoIniciada
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-500/100/15 text-emerald-300'
                               : progressaoNaoIniciada
-                              ? 'bg-slate-100 text-slate-600'
+                              ? 'bg-slate-500/10 text-slate-400'
                               : 'bg-violet-100 text-violet-800'
                           }`}
                         >
@@ -232,7 +232,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                         <button
                           onClick={() => handleCancelar(p.id)}
                           title="Cancelar progressão"
-                          className="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-destructive transition-colors"
+                          className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-destructive transition-colors"
                         >
                           <XCircle className="h-4 w-4" />
                         </button>
@@ -266,7 +266,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                         <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${
-                              isConcluido ? 'bg-emerald-500' : 'bg-violet-500'
+                              isConcluido ? 'bg-emerald-500/100' : 'bg-violet-500/100'
                             }`}
                             style={{ width: `${pct}%` }}
                           />
@@ -290,7 +290,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
 
                   <button
                     onClick={() => setCronogramaProgressao(p)}
-                    className="mt-3 flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 transition-colors"
+                    className="mt-3 flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
                   >
                     <CalendarDays className="h-3.5 w-3.5" />
                     Ver cronograma completo
@@ -322,7 +322,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                 </div>
                 <button
                   onClick={() => abrirNova(p.id)}
-                  className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                  className="flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/100/20 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Iniciar progressão

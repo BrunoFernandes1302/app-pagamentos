@@ -1,4 +1,4 @@
-import { UserCircle } from 'lucide-react'
+﻿import { UserCircle } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireOrgAdmin } from '@/lib/auth'
 import { CriarUsuarioOrgForm } from './criar-usuario-form'
@@ -59,7 +59,7 @@ export default async function OrgAdminPage() {
                       {ROLE_LABELS[u.role] ?? u.role}
                     </span>
                     {u.id === profile.id && (
-                      <span className="rounded-full bg-slate-100 text-slate-500 px-2 py-0.5 text-xs">você</span>
+                      <span className="rounded-full bg-slate-500/10 text-slate-400 px-2 py-0.5 text-xs">você</span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">{u.email}</p>

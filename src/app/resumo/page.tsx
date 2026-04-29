@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { ArrowLeft, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
@@ -113,8 +113,8 @@ export default async function ResumoPage({
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="w-fit rounded-lg p-3 bg-teal-50">
-              <Receipt className="h-6 w-6 text-teal-600" />
+            <div className="w-fit rounded-lg p-3 bg-teal-500/10">
+              <Receipt className="h-6 w-6 text-teal-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground capitalize">

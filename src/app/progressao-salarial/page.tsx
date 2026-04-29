@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 import { ArrowLeft, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import ProgressaoList from './progressao-list'
@@ -40,8 +40,8 @@ export default async function ProgressaoSalarialPage() {
 
       <main className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-fit rounded-lg p-3 bg-violet-50">
-            <TrendingUp className="h-6 w-6 text-violet-600" />
+          <div className="w-fit rounded-lg p-3 bg-violet-500/10">
+            <TrendingUp className="h-6 w-6 text-violet-400" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Progressão Salarial</h1>

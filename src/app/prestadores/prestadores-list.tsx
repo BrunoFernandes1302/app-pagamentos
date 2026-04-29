@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useTransition } from 'react'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Loader2, Users } from 'lucide-react'
@@ -7,9 +7,9 @@ import { alternarAtivo, excluirPrestador } from './actions'
 import PrestadorFormDialog from './prestador-form-dialog'
 
 const CONTRATO_STYLE: Record<string, string> = {
-  USDT: 'bg-amber-100 text-amber-800',
+  USDT: 'bg-amber-500/15 text-amber-300',
   'USDT/BRL': 'bg-blue-100 text-blue-800',
-  BRL: 'bg-emerald-100 text-emerald-800',
+  BRL: 'bg-emerald-500/100/15 text-emerald-300',
 }
 
 function formatSalario(value: number, contrato: string) {
@@ -132,7 +132,7 @@ export default function PrestadoresList({ prestadores }: { prestadores: Prestado
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             p.ativo
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-emerald-500/100/15 text-emerald-300'
                               : 'bg-zinc-100 text-zinc-500'
                           }`}
                         >
@@ -158,7 +158,7 @@ export default function PrestadoresList({ prestadores }: { prestadores: Prestado
                             {isToggling ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : p.ativo ? (
-                              <ToggleRight className="h-4 w-4 text-emerald-600" />
+                              <ToggleRight className="h-4 w-4 text-emerald-400" />
                             ) : (
                               <ToggleLeft className="h-4 w-4" />
                             )}
@@ -184,7 +184,7 @@ export default function PrestadoresList({ prestadores }: { prestadores: Prestado
                             <button
                               onClick={() => handleDeleteClick(p.id)}
                               title="Excluir"
-                              className="rounded p-1.5 text-muted-foreground hover:bg-red-50 hover:text-destructive transition-colors"
+                              className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-destructive transition-colors"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
@@ -11,8 +11,8 @@ import ParcelasDialog from './parcelas-dialog'
 import type { Emprestimo, StatusEmprestimo } from '@/lib/types'
 
 const STATUS_BADGE: Record<StatusEmprestimo, string> = {
-  ativo:     'bg-emerald-100 text-emerald-700',
-  quitado:   'bg-slate-100 text-slate-500',
+  ativo:     'bg-emerald-500/100/15 text-emerald-400',
+  quitado:   'bg-slate-500/10 text-slate-400',
   cancelado: 'bg-red-100 text-red-600',
 }
 
@@ -121,7 +121,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
           {emprestimos.length === 0 && (
             <button
               onClick={() => setDialogOpen(true)}
-              className="mt-3 text-sm text-blue-600 hover:underline"
+              className="mt-3 text-sm text-blue-400 hover:underline"
             >
               Cadastrar primeiro empréstimo
             </button>
@@ -176,7 +176,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-20 rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-blue-500 transition-all"
+                            className="h-full rounded-full bg-blue-500/100 transition-all"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -201,7 +201,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                           <button
                             onClick={() => handleCancelar(emp.id)}
                             disabled={isPending}
-                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-40"
                           >
                             <XCircle className="h-3.5 w-3.5" />
                             Cancelar
@@ -212,7 +212,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                             <button
                               onClick={() => handleReativar(emp.id)}
                               disabled={isPending}
-                              className="flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-40"
+                              className="flex items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1 text-xs font-medium text-amber-400 hover:bg-amber-50 transition-colors disabled:opacity-40"
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                               Desfazer
@@ -220,7 +220,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                             <button
                               onClick={() => handleExcluir(emp.id)}
                               disabled={isPending}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                              className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-40"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Excluir
@@ -231,7 +231,7 @@ export default function EmprestimosList({ emprestimos, prestadores }: Props) {
                           <button
                             onClick={() => handleExcluir(emp.id)}
                             disabled={isPending}
-                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40"
+                            className="flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-40"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                             Excluir

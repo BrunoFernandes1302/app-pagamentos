@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useActionState, useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -114,7 +114,7 @@ export function CriarUsuarioForm({ orgs }: { orgs: Org[] }) {
         </p>
       )}
       {state?.success && (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-400">
           {state.success}
         </p>
       )}

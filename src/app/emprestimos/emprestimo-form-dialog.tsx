@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
@@ -134,8 +134,8 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
           {/* Aviso: prestador já tem empréstimo ativo */}
           {emprestimoAtivo && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-2">
-              <p className="font-medium text-amber-800">Este prestador já possui empréstimo ativo</p>
-              <p className="text-xs text-amber-700">
+              <p className="font-medium text-amber-300">Este prestador já possui empréstimo ativo</p>
+              <p className="text-xs text-amber-400">
                 {emprestimoAtivo.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {emprestimoAtivo.moeda}
                 {' · '}
                 {emprestimoAtivo.parcelas_emprestimo?.filter(p => p.status === 'pendente').length ?? '?'} parcelas restantes
@@ -147,7 +147,7 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
                 ] as const).map(([val, label]) => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" {...register('modo_multiplos')} value={val} className="accent-blue-600" />
-                    <span className="text-amber-800 text-xs">{label}</span>
+                    <span className="text-amber-300 text-xs">{label}</span>
                   </label>
                 ))}
               </div>
