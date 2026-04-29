@@ -1,7 +1,7 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useState, useTransition } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useTransition } from 'react'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Plus, Trash2, Wallet, QrCode, TrendingUp } from 'lucide-react'
@@ -9,6 +9,7 @@ import { criarComissao, atualizarComissao } from './actions'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
+import { useState } from 'react'
 
 // ─── Schema ────────────────────────────────────────────────────────────────
 
@@ -24,8 +25,7 @@ const schema = z.object({
   previsao_pagamento: z.string().optional(),
   moeda_venda: z.enum(['USDT', 'BRL']),
   receita_ether: z.coerce.number().positive('Valor deve ser maior que zero'),
-  prestador1: prestadorItemSchema,
-  prestador2: prestadorItemSchema.optional(),
+  prestadores: z.array(prestadorItemSchema).min(1, 'Ao menos um prestador é obrigatório').max(5),
 })
 
 type FormData = z.infer<typeof schema>
@@ -36,7 +36,7 @@ const DEFAULTS: FormData = {
   previsao_pagamento: '',
   moeda_venda: 'USDT',
   receita_ether: 0,
-  prestador1: { prestador_id: '', percentual: 0, moeda_recebimento: 'USDT' },
+  prestadores: [{ prestador_id: '', percentual: 0, moeda_recebimento: 'USDT' }],
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -166,7 +166,6 @@ interface Props {
 
 export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos, comissao }: Props) {
   const isEditing = !!comissao
-  const [showPrestador2, setShowPrestador2] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const { rate, loading: rateLoading, error: rateError } = useExchangeRate()
@@ -177,14 +176,14 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
     defaultValues: DEFAULTS,
   })
 
-  const receita = form.watch('receita_ether') || 0
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'prestadores',
+  })
+
   const moedaVenda = form.watch('moeda_venda')
-  const p1Id = form.watch('prestador1.prestador_id')
-  const p1Perc = form.watch('prestador1.percentual') || 0
-  const p1Moeda = form.watch('prestador1.moeda_recebimento')
-  const p2Id = form.watch('prestador2.prestador_id')
-  const p2Perc = form.watch('prestador2.percentual') || 0
-  const p2Moeda = form.watch('prestador2.moeda_recebimento') ?? 'USDT'
+  const receita = form.watch('receita_ether') || 0
+  const prestadoresWatch = form.watch('prestadores')
 
   useEffect(() => {
     if (!isOpen) return
@@ -197,63 +196,30 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
         previsao_pagamento: comissao.previsao_pagamento ?? '',
         moeda_venda: comissao.moeda_venda,
         receita_ether: comissao.receita_ether,
-        prestador1: {
-          prestador_id: cp[0]?.prestador_id ?? '',
-          percentual: cp[0]?.percentual ?? 0,
-          moeda_recebimento: cp[0]?.moeda_recebimento ?? 'USDT',
-        },
-        prestador2: cp[1]
-          ? {
-              prestador_id: cp[1].prestador_id,
-              percentual: cp[1].percentual,
-              moeda_recebimento: cp[1].moeda_recebimento,
-            }
-          : undefined,
+        prestadores: cp.length > 0
+          ? cp.map(p => ({
+              prestador_id: p.prestador_id,
+              percentual: p.percentual,
+              moeda_recebimento: p.moeda_recebimento,
+            }))
+          : DEFAULTS.prestadores,
       })
-      setShowPrestador2(cp.length > 1)
     } else {
       form.reset(DEFAULTS)
-      setShowPrestador2(false)
     }
 
     setServerError(null)
   }, [isOpen, comissao, form])
 
-  function removePrestador2() {
-    setShowPrestador2(false)
-    form.setValue('prestador2', undefined)
-    form.clearErrors('prestador2')
-  }
-
   function onSubmit(data: FormData) {
-    if (showPrestador2) {
-      if (!data.prestador2?.prestador_id) {
-        form.setError('prestador2.prestador_id', { message: 'Selecione o segundo prestador' })
-        return
-      }
-      if (data.prestador2.prestador_id === data.prestador1.prestador_id) {
-        form.setError('prestador2.prestador_id', { message: 'Selecione um prestador diferente' })
-        return
-      }
+    const ids = data.prestadores.map(p => p.prestador_id)
+    const hasDuplicate = ids.some((id, i) => ids.indexOf(id) !== i)
+    if (hasDuplicate) {
+      form.setError('prestadores', { message: 'Dois ou mais prestadores são iguais.' })
+      return
     }
 
     setServerError(null)
-
-    const prestadores = [
-      {
-        prestador_id: data.prestador1.prestador_id,
-        percentual: data.prestador1.percentual,
-        moeda_recebimento: data.prestador1.moeda_recebimento,
-      },
-    ]
-
-    if (showPrestador2 && data.prestador2) {
-      prestadores.push({
-        prestador_id: data.prestador2.prestador_id,
-        percentual: data.prestador2.percentual,
-        moeda_recebimento: data.prestador2.moeda_recebimento,
-      })
-    }
 
     const payload = {
       tipo: data.tipo,
@@ -261,7 +227,11 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
       previsao_pagamento: data.previsao_pagamento || null,
       moeda_venda: data.moeda_venda,
       receita_ether: data.receita_ether,
-      prestadores,
+      prestadores: data.prestadores.map(p => ({
+        prestador_id: p.prestador_id,
+        percentual: p.percentual,
+        moeda_recebimento: p.moeda_recebimento,
+      })),
     }
 
     startTransition(async () => {
@@ -280,7 +250,7 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
 
   if (!isOpen) return null
 
-  const needsRate = moedaVenda !== p1Moeda || (showPrestador2 && moedaVenda !== p2Moeda)
+  const needsRate = prestadoresWatch.some(p => p.moeda_recebimento !== moedaVenda)
 
   return (
     <>
@@ -392,159 +362,122 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
 
               <div className="border-t border-border" />
 
-              {/* Prestador 1 */}
-              <div>
-                <p className="text-sm font-semibold text-foreground mb-3">Prestador 1</p>
-                <div className="rounded-lg border border-border p-4 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Prestador <span className="text-destructive">*</span>
-                    </label>
-                    <select {...form.register('prestador1.prestador_id')} className={inputClass}>
-                      <option value="">Selecione um prestador</option>
-                      {prestadoresAtivos.filter(p => p.ativo).map(p => (
-                        <option key={p.id} value={p.id}>{p.nome}</option>
-                      ))}
-                      {prestadoresAtivos.some(p => !p.ativo) && (
-                        <optgroup label="Inativos">
-                          {prestadoresAtivos.filter(p => !p.ativo).map(p => (
-                            <option key={p.id} value={p.id}>{p.nome}</option>
-                          ))}
-                        </optgroup>
-                      )}
-                    </select>
-                    <FieldError message={form.formState.errors.prestador1?.prestador_id?.message} />
-                  </div>
+              {/* Lista de prestadores */}
+              <div className="space-y-4">
+                {fields.map((field, index) => {
+                  const pId = prestadoresWatch[index]?.prestador_id ?? ''
+                  const pPerc = prestadoresWatch[index]?.percentual ?? 0
+                  const pMoeda = (prestadoresWatch[index]?.moeda_recebimento ?? 'USDT') as MoedaSimples
+                  const outrosIds = prestadoresWatch
+                    .filter((_, i) => i !== index)
+                    .map(p => p.prestador_id)
+                    .filter(Boolean)
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        % Comissão <span className="text-destructive">*</span>
-                      </label>
-                      <input
-                        {...form.register('prestador1.percentual')}
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        placeholder="0.00"
-                        className={inputClass}
-                      />
-                      <FieldError message={form.formState.errors.prestador1?.percentual?.message} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Recebe em <span className="text-destructive">*</span>
-                      </label>
-                      <select {...form.register('prestador1.moeda_recebimento')} className={inputClass}>
-                        <option value="USDT">USDT</option>
-                        <option value="BRL">BRL (Reais)</option>
-                      </select>
-                    </div>
-                  </div>
+                  return (
+                    <div key={field.id}>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-foreground">
+                          Prestador {index + 1}
+                        </p>
+                        {index > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => remove(index)}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remover
+                          </button>
+                        )}
+                      </div>
 
-                  <ComissaoPreview
-                    receita={receita}
-                    percentual={p1Perc}
-                    moedaVenda={moedaVenda}
-                    moedaRecebimento={p1Moeda}
-                    rate={rate}
-                  />
-
-                  {p1Id && (
-                    <PaymentInfo prestadorId={p1Id} moeda={p1Moeda} prestadoresAtivos={prestadoresAtivos} />
-                  )}
-                </div>
-              </div>
-
-              {/* Prestador 2 */}
-              {showPrestador2 ? (
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-semibold text-foreground">Prestador 2</p>
-                    <button
-                      type="button"
-                      onClick={removePrestador2}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Remover
-                    </button>
-                  </div>
-                  <div className="rounded-lg border border-border p-4 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1.5">
-                        Prestador <span className="text-destructive">*</span>
-                      </label>
-                      <select {...form.register('prestador2.prestador_id')} className={inputClass}>
-                        <option value="">Selecione um prestador</option>
-                        {prestadoresAtivos.filter(p => p.ativo && p.id !== p1Id).map(p => (
-                          <option key={p.id} value={p.id}>{p.nome}</option>
-                        ))}
-                        {prestadoresAtivos.some(p => !p.ativo && p.id !== p1Id) && (
-                          <optgroup label="Inativos">
-                            {prestadoresAtivos.filter(p => !p.ativo && p.id !== p1Id).map(p => (
+                      <div className="rounded-lg border border-border p-4 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-1.5">
+                            Prestador <span className="text-destructive">*</span>
+                          </label>
+                          <select
+                            {...form.register(`prestadores.${index}.prestador_id`)}
+                            className={inputClass}
+                          >
+                            <option value="">Selecione um prestador</option>
+                            {prestadoresAtivos.filter(p => p.ativo && !outrosIds.includes(p.id)).map(p => (
                               <option key={p.id} value={p.id}>{p.nome}</option>
                             ))}
-                          </optgroup>
-                        )}
-                      </select>
-                      <FieldError message={form.formState.errors.prestador2?.prestador_id?.message} />
-                    </div>
+                            {prestadoresAtivos.some(p => !p.ativo && !outrosIds.includes(p.id)) && (
+                              <optgroup label="Inativos">
+                                {prestadoresAtivos.filter(p => !p.ativo && !outrosIds.includes(p.id)).map(p => (
+                                  <option key={p.id} value={p.id}>{p.nome}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                          <FieldError message={form.formState.errors.prestadores?.[index]?.prestador_id?.message} />
+                        </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">
-                          % Comissão <span className="text-destructive">*</span>
-                        </label>
-                        <input
-                          {...form.register('prestador2.percentual')}
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          placeholder="0.00"
-                          className={inputClass}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-1.5">
+                              % Comissão <span className="text-destructive">*</span>
+                            </label>
+                            <input
+                              {...form.register(`prestadores.${index}.percentual`)}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              placeholder="0.00"
+                              className={inputClass}
+                            />
+                            <FieldError message={form.formState.errors.prestadores?.[index]?.percentual?.message} />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-1.5">
+                              Recebe em <span className="text-destructive">*</span>
+                            </label>
+                            <select
+                              {...form.register(`prestadores.${index}.moeda_recebimento`)}
+                              className={inputClass}
+                            >
+                              <option value="USDT">USDT</option>
+                              <option value="BRL">BRL (Reais)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <ComissaoPreview
+                          receita={receita}
+                          percentual={pPerc}
+                          moedaVenda={moedaVenda}
+                          moedaRecebimento={pMoeda}
+                          rate={rate}
                         />
-                        <FieldError message={form.formState.errors.prestador2?.percentual?.message} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-1.5">
-                          Recebe em <span className="text-destructive">*</span>
-                        </label>
-                        <select {...form.register('prestador2.moeda_recebimento')} className={inputClass}>
-                          <option value="USDT">USDT</option>
-                          <option value="BRL">BRL (Reais)</option>
-                        </select>
+
+                        {pId && (
+                          <PaymentInfo prestadorId={pId} moeda={pMoeda} prestadoresAtivos={prestadoresAtivos} />
+                        )}
                       </div>
                     </div>
+                  )
+                })}
 
-                    <ComissaoPreview
-                      receita={receita}
-                      percentual={p2Perc}
-                      moedaVenda={moedaVenda}
-                      moedaRecebimento={p2Moeda}
-                      rate={rate}
-                    />
+                {/* Erro de duplicata */}
+                {'message' in (form.formState.errors.prestadores ?? {}) && (
+                  <FieldError message={(form.formState.errors.prestadores as { message?: string })?.message} />
+                )}
 
-                    {p2Id && (
-                      <PaymentInfo prestadorId={p2Id} moeda={p2Moeda} prestadoresAtivos={prestadoresAtivos} />
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPrestador2(true)
-                    form.setValue('prestador2', { prestador_id: '', percentual: 0, moeda_recebimento: 'USDT' })
-                  }}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                  Incluir segundo prestador
-                </button>
-              )}
+                {/* Botão adicionar */}
+                {fields.length < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => append({ prestador_id: '', percentual: 0, moeda_recebimento: 'USDT' })}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Incluir prestador {fields.length + 1}
+                  </button>
+                )}
+              </div>
 
               {serverError && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
