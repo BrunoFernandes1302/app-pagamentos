@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2 } from 'lucide-react'
 import { criarPrestador, atualizarPrestador } from './actions'
-import type { Prestador, PrestadorInput } from '@/lib/types'
+import type { Prestador, PrestadorInput, TipoChavePix } from '@/lib/types'
 
 const schema = z.object({
   nome: z.string().min(1, 'Nome obrigatório'),
@@ -206,7 +206,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
       carteira_cripto: data.contrato !== 'BRL' ? (data.carteira_cripto?.trim() || null) : null,
       rede_cripto: data.contrato !== 'BRL' ? (data.rede_cripto?.trim() || null) : null,
       chave_pix: data.contrato === 'BRL' ? (data.chave_pix?.trim() || null) : null,
-      tipo_chave_pix: data.contrato === 'BRL' ? (data.tipo_chave_pix?.trim() || null) : null,
+      tipo_chave_pix: data.contrato === 'BRL' ? ((data.tipo_chave_pix?.trim() || null) as TipoChavePix | null) : null,
       ativo: data.ativo,
     }
 
