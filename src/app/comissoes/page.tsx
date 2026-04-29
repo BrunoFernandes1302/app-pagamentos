@@ -15,16 +15,15 @@ export default async function ComissoesPage() {
         *,
         comissao_prestadores (
           *,
-          prestadores ( nome, carteira_cripto, rede_cripto, chave_pix )
+          prestadores ( nome, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix )
         )
       `)
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false }),
     supabase
       .from('prestadores')
-      .select('id, nome, carteira_cripto, rede_cripto, chave_pix')
+      .select('id, nome, ativo, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
       .eq('organization_id', orgId)
-      .eq('ativo', true)
       .order('nome'),
   ])
 

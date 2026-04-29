@@ -20,6 +20,7 @@ const schema = z.object({
   carteira_cripto: z.string().optional(),
   rede_cripto: z.string().optional(),
   chave_pix: z.string().optional(),
+  tipo_chave_pix: z.string().optional(),
   ativo: z.boolean(),
 }).superRefine((data, ctx) => {
   if (data.contrato !== 'BRL') {
@@ -30,13 +31,83 @@ const schema = z.object({
       ctx.addIssue({ code: 'custom', path: ['rede_cripto'], message: 'Rede obrigatória' })
     }
   } else {
+    if (!data.tipo_chave_pix) {
+      ctx.addIssue({ code: 'custom', path: ['tipo_chave_pix'], message: 'Tipo obrigatório' })
+    }
     if (!data.chave_pix?.trim()) {
       ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'Chave PIX obrigatória' })
+    } else {
+      const tipo = data.tipo_chave_pix
+      const chave = data.chave_pix
+      if (tipo === 'cpf' && chave.replace(/\D/g, '').length !== 11) {
+        ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'CPF incompleto (11 dígitos)' })
+      } else if (tipo === 'cnpj' && chave.replace(/\D/g, '').length !== 14) {
+        ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'CNPJ incompleto (14 dígitos)' })
+      } else if (tipo === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(chave)) {
+        ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'E-mail inválido' })
+      } else if (tipo === 'telefone' && !/^\(\d{2}\) \d{4,5}-\d{4}$/.test(chave)) {
+        ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'Telefone incompleto' })
+      } else if (tipo === 'aleatoria' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(chave)) {
+        ctx.addIssue({ code: 'custom', path: ['chave_pix'], message: 'Chave deve ser um UUID válido' })
+      }
     }
   }
 })
 
 type FormData = z.infer<typeof schema>
+
+// ─── Máscaras PIX ─────────────────────────────────────────────────────────────
+
+function mascaraCPF(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
+
+function mascaraCNPJ(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 14)
+  if (d.length <= 2) return d
+  if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`
+  if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`
+  if (d.length <= 12) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8)}`
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
+}
+
+function mascaraTelefone(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 2) return d ? `(${d}` : ''
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
+function mascaraAleatoria(v: string): string {
+  const d = v.toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 32)
+  if (d.length <= 8) return d
+  if (d.length <= 12) return `${d.slice(0, 8)}-${d.slice(8)}`
+  if (d.length <= 16) return `${d.slice(0, 8)}-${d.slice(8, 12)}-${d.slice(12)}`
+  if (d.length <= 20) return `${d.slice(0, 8)}-${d.slice(8, 12)}-${d.slice(12, 16)}-${d.slice(16)}`
+  return `${d.slice(0, 8)}-${d.slice(8, 12)}-${d.slice(12, 16)}-${d.slice(16, 20)}-${d.slice(20)}`
+}
+
+function aplicarMascaraPix(tipo: string, valor: string): string {
+  if (tipo === 'cpf') return mascaraCPF(valor)
+  if (tipo === 'cnpj') return mascaraCNPJ(valor)
+  if (tipo === 'email') return valor.toLowerCase().replace(/\s/g, '')
+  if (tipo === 'telefone') return mascaraTelefone(valor)
+  if (tipo === 'aleatoria') return mascaraAleatoria(valor)
+  return valor
+}
+
+const PIX_PLACEHOLDER: Record<string, string> = {
+  cpf: '000.000.000-00',
+  cnpj: '00.000.000/0000-00',
+  email: 'joao@exemplo.com',
+  telefone: '(11) 99999-9999',
+  aleatoria: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+}
 
 const DEFAULTS: FormData = {
   nome: '',
@@ -50,6 +121,7 @@ const DEFAULTS: FormData = {
   carteira_cripto: '',
   rede_cripto: '',
   chave_pix: '',
+  tipo_chave_pix: '',
   ativo: true,
 }
 
@@ -80,6 +152,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
 
   const contrato = form.watch('contrato')
   const ativo = form.watch('ativo')
+  const tipoChavePix = form.watch('tipo_chave_pix') ?? ''
 
   useEffect(() => {
     if (!isOpen) return
@@ -96,6 +169,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
         carteira_cripto: prestador.carteira_cripto ?? '',
         rede_cripto: prestador.rede_cripto ?? '',
         chave_pix: prestador.chave_pix ?? '',
+        tipo_chave_pix: prestador.tipo_chave_pix ?? '',
         ativo: prestador.ativo,
       })
     } else {
@@ -112,7 +186,9 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
       form.clearErrors(['carteira_cripto', 'rede_cripto'])
     } else {
       form.setValue('chave_pix', '')
+      form.setValue('tipo_chave_pix', '')
       form.clearErrors('chave_pix')
+      form.clearErrors('tipo_chave_pix')
     }
   }, [contrato, form])
 
@@ -130,6 +206,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
       carteira_cripto: data.contrato !== 'BRL' ? (data.carteira_cripto?.trim() || null) : null,
       rede_cripto: data.contrato !== 'BRL' ? (data.rede_cripto?.trim() || null) : null,
       chave_pix: data.contrato === 'BRL' ? (data.chave_pix?.trim() || null) : null,
+      tipo_chave_pix: data.contrato === 'BRL' ? (data.tipo_chave_pix?.trim() || null) : null,
       ativo: data.ativo,
     }
 
@@ -321,16 +398,46 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
 
               {/* Chave PIX (BRL) */}
               {contrato === 'BRL' && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Chave PIX <span className="text-destructive">*</span>
-                  </label>
-                  <input
-                    {...form.register('chave_pix')}
-                    placeholder="CPF, email, telefone ou chave aleatória"
-                    className={inputClass}
-                  />
-                  <FieldError message={form.formState.errors.chave_pix?.message} />
+                <div className="grid grid-cols-[180px_1fr] gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                      Tipo de chave <span className="text-destructive">*</span>
+                    </label>
+                    <select
+                      {...form.register('tipo_chave_pix')}
+                      onChange={(e) => {
+                        form.setValue('tipo_chave_pix', e.target.value, { shouldValidate: form.formState.isSubmitted })
+                        form.setValue('chave_pix', '')
+                        form.clearErrors('chave_pix')
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Selecione</option>
+                      <option value="cpf">CPF</option>
+                      <option value="cnpj">CNPJ</option>
+                      <option value="email">E-mail</option>
+                      <option value="telefone">Telefone</option>
+                      <option value="aleatoria">Aleatória</option>
+                    </select>
+                    <FieldError message={form.formState.errors.tipo_chave_pix?.message} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                      Chave PIX <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      {...form.register('chave_pix')}
+                      value={form.watch('chave_pix') || ''}
+                      onChange={(e) => {
+                        const val = aplicarMascaraPix(tipoChavePix, e.target.value)
+                        form.setValue('chave_pix', val, { shouldValidate: form.formState.isSubmitted })
+                      }}
+                      placeholder={PIX_PLACEHOLDER[tipoChavePix] ?? 'Selecione o tipo primeiro'}
+                      disabled={!tipoChavePix}
+                      className={inputClass}
+                    />
+                    <FieldError message={form.formState.errors.chave_pix?.message} />
+                  </div>
                 </div>
               )}
 

@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays } from 'lucide-react'
-import type { Comissao, PrestadorResumido, MoedaSimples } from '@/lib/types'
+import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
+import { TIPO_PIX_LABEL } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import { excluirComissao } from './actions'
 import ComissaoFormDialog from './comissao-form-dialog'
@@ -346,8 +347,8 @@ export default function ComissoesList({
                     )
                     const info =
                       cp.moeda_recebimento === 'BRL'
-                        ? { val: cp.prestadores?.chave_pix ?? null, rede: null }
-                        : { val: cp.prestadores?.carteira_cripto ?? null, rede: cp.prestadores?.rede_cripto ?? null }
+                        ? { val: cp.prestadores?.chave_pix ?? null, rede: null, pixTipo: cp.prestadores?.tipo_chave_pix ?? null }
+                        : { val: cp.prestadores?.carteira_cripto ?? null, rede: cp.prestadores?.rede_cripto ?? null, pixTipo: null }
 
                     return (
                       <div key={cp.id} className="px-5 py-2.5 flex items-center gap-4 justify-between">
@@ -386,6 +387,11 @@ export default function ComissoesList({
                               <span className="font-mono">{info.val}</span>
                               {info.rede && (
                                 <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-sans">{info.rede}</span>
+                              )}
+                              {info.pixTipo && (
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-sans">
+                                  {TIPO_PIX_LABEL[info.pixTipo as TipoChavePix] ?? info.pixTipo}
+                                </span>
                               )}
                               <button
                                 onClick={() => copiar(cp.id, info.val!)}

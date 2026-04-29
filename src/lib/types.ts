@@ -1,5 +1,15 @@
 export type TipoContrato = 'USDT' | 'USDT/BRL' | 'BRL'
 
+export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
+
+export const TIPO_PIX_LABEL: Record<TipoChavePix, string> = {
+  cpf: 'CPF',
+  cnpj: 'CNPJ',
+  email: 'E-mail',
+  telefone: 'Telefone',
+  aleatoria: 'Aleatória',
+}
+
 export type UserRole = 'super_admin' | 'admin' | 'member'
 
 export interface Organization {
@@ -29,6 +39,7 @@ export interface Prestador {
   carteira_cripto: string | null
   rede_cripto: string | null
   chave_pix: string | null
+  tipo_chave_pix: TipoChavePix | null
   ativo: boolean
   created_at: string
   updated_at: string
@@ -41,9 +52,11 @@ export type MoedaSimples = 'USDT' | 'BRL'
 export interface PrestadorResumido {
   id: string
   nome: string
+  ativo: boolean
   carteira_cripto: string | null
   rede_cripto: string | null
   chave_pix: string | null
+  tipo_chave_pix: TipoChavePix | null
 }
 
 export interface ComissaoPrestador {
@@ -60,6 +73,7 @@ export interface ComissaoPrestador {
     carteira_cripto: string | null
     rede_cripto: string | null
     chave_pix: string | null
+    tipo_chave_pix: TipoChavePix | null
   }
 }
 

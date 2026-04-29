@@ -7,7 +7,8 @@ import { z } from 'zod'
 import { X, Loader2, Plus, Trash2, Wallet, QrCode, TrendingUp } from 'lucide-react'
 import { criarComissao, atualizarComissao } from './actions'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
-import type { Comissao, PrestadorResumido, MoedaSimples } from '@/lib/types'
+import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
+import { TIPO_PIX_LABEL } from '@/lib/types'
 
 // ─── Schema ────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ function PaymentInfo({
   if (!p) return null
   const val = moeda === 'BRL' ? p.chave_pix : p.carteira_cripto
   const rede = moeda === 'USDT' ? p.rede_cripto : null
+  const pixTipo = moeda === 'BRL' ? p.tipo_chave_pix : null
 
   if (!val)
     return (
@@ -98,6 +100,11 @@ function PaymentInfo({
       {rede && (
         <span className="shrink-0 rounded bg-background border border-border px-1.5 py-0.5 font-sans">
           {rede}
+        </span>
+      )}
+      {pixTipo && (
+        <span className="shrink-0 rounded bg-background border border-border px-1.5 py-0.5 font-sans">
+          {TIPO_PIX_LABEL[pixTipo as TipoChavePix] ?? pixTipo}
         </span>
       )}
     </div>
@@ -395,9 +402,16 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
                     </label>
                     <select {...form.register('prestador1.prestador_id')} className={inputClass}>
                       <option value="">Selecione um prestador</option>
-                      {prestadoresAtivos.map(p => (
+                      {prestadoresAtivos.filter(p => p.ativo).map(p => (
                         <option key={p.id} value={p.id}>{p.nome}</option>
                       ))}
+                      {prestadoresAtivos.some(p => !p.ativo) && (
+                        <optgroup label="Inativos">
+                          {prestadoresAtivos.filter(p => !p.ativo).map(p => (
+                            <option key={p.id} value={p.id}>{p.nome}</option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                     <FieldError message={form.formState.errors.prestador1?.prestador_id?.message} />
                   </div>
@@ -464,11 +478,16 @@ export default function ComissaoFormDialog({ isOpen, onClose, prestadoresAtivos,
                       </label>
                       <select {...form.register('prestador2.prestador_id')} className={inputClass}>
                         <option value="">Selecione um prestador</option>
-                        {prestadoresAtivos
-                          .filter(p => p.id !== p1Id)
-                          .map(p => (
-                            <option key={p.id} value={p.id}>{p.nome}</option>
-                          ))}
+                        {prestadoresAtivos.filter(p => p.ativo && p.id !== p1Id).map(p => (
+                          <option key={p.id} value={p.id}>{p.nome}</option>
+                        ))}
+                        {prestadoresAtivos.some(p => !p.ativo && p.id !== p1Id) && (
+                          <optgroup label="Inativos">
+                            {prestadoresAtivos.filter(p => !p.ativo && p.id !== p1Id).map(p => (
+                              <option key={p.id} value={p.id}>{p.nome}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                       <FieldError message={form.formState.errors.prestador2?.prestador_id?.message} />
                     </div>

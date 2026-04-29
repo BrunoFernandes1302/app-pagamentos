@@ -1,11 +1,13 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2 } from 'lucide-react'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
-import type { TipoContrato, MoedaSimples } from '@/lib/types'
+import type { TipoContrato, MoedaSimples, TipoChavePix } from '@/lib/types'
+import { TIPO_PIX_LABEL } from '@/lib/types'
 import RegistrarPagamentoSalarioDialog, { type SalarioPagamentoContext } from './registrar-pagamento-dialog'
+import FaltasDialog, { type FaltaItem } from './faltas-dialog'
 
 interface Parcela {
   id: string
@@ -21,6 +23,7 @@ interface Item {
   carteira_cripto: string | null
   rede_cripto: string | null
   chave_pix: string | null
+  tipo_chave_pix: string | null
   parcelas: Parcela[]
 }
 
@@ -28,6 +31,7 @@ interface Props {
   items: Item[]
   pagoIds: string[]
   mesAtual: string // 'YYYY-MM-DD'
+  faltas: FaltaItem[]
 }
 
 const CONTRATO_BADGE: Record<TipoContrato, string> = {
@@ -67,25 +71,40 @@ function getMesAtual() {
 
 type Filtro = 'pendentes' | 'pagas'
 
-export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
+export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) {
   const { rate } = useExchangeRate()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [diasMap, setDiasMap] = useState<Record<string, number>>(
-    () => Object.fromEntries(items.map(i => [i.id, 30]))
-  )
+  const faltasByPrestador = useMemo(() => {
+    const map = new Map<string, FaltaItem[]>()
+    for (const f of faltas) {
+      if (!map.has(f.prestador_id)) map.set(f.prestador_id, [])
+      map.get(f.prestador_id)!.push(f)
+    }
+    return map
+  }, [faltas])
+
+  const [manualDias, setManualDias] = useState<Record<string, number>>({})
+
+  const diasMap = useMemo(() =>
+    Object.fromEntries(items.map(i => {
+      const calculado = Math.max(1, 30 - (faltasByPrestador.get(i.id)?.length ?? 0))
+      return [i.id, manualDias[i.id] ?? calculado]
+    }))
+  , [items, faltasByPrestador, manualDias])
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>('pendentes')
   const [pagamentoCtx, setPagamentoCtx] = useState<SalarioPagamentoContext | null>(null)
+  const [faltaCtx, setFaltaCtx] = useState<{ prestadorId: string; prestadorNome: string } | null>(null)
 
   const pagoSet = new Set(pagoIds)
 
   function setDias(id: string, raw: string) {
     const v = parseInt(raw)
     if (isNaN(v)) return
-    setDiasMap(prev => ({ ...prev, [id]: Math.max(1, Math.min(30, v)) }))
+    setManualDias(prev => ({ ...prev, [id]: Math.max(1, Math.min(30, v)) }))
   }
 
   function copiar(id: string, valor: string) {
@@ -234,16 +253,27 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
 
                     {/* Dias trabalhados */}
                     <td className="px-4 py-3 text-center">
-                      <div className="inline-flex items-center gap-1">
-                        <input
-                          type="number"
-                          min={1}
-                          max={30}
-                          value={dias}
-                          onChange={e => setDias(item.id, e.target.value)}
-                          className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
-                        />
-                        <span className="text-xs text-muted-foreground">/30</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="inline-flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={dias}
+                            onChange={e => setDias(item.id, e.target.value)}
+                            className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+                          />
+                          <span className="text-xs text-muted-foreground">/30</span>
+                        </div>
+                        <button
+                          onClick={() => setFaltaCtx({ prestadorId: item.id, prestadorNome: item.nome })}
+                          className="text-xs transition-colors"
+                        >
+                          {(faltasByPrestador.get(item.id)?.length ?? 0) > 0
+                            ? <span className="text-amber-400">{faltasByPrestador.get(item.id)!.length} falta{faltasByPrestador.get(item.id)!.length > 1 ? 's' : ''}</span>
+                            : <span className="text-muted-foreground hover:text-foreground">+ falta</span>
+                          }
+                        </button>
                       </div>
                     </td>
 
@@ -302,6 +332,11 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
                             {item.rede_cripto}
                           </span>
                         )}
+                        {item.contrato === 'BRL' && item.tipo_chave_pix && (
+                          <span className="bg-muted rounded px-1 py-0.5 text-muted-foreground">
+                            {TIPO_PIX_LABEL[item.tipo_chave_pix as TipoChavePix] ?? item.tipo_chave_pix}
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -353,6 +388,21 @@ export default function ResumoList({ items, pagoIds, mesAtual }: Props) {
             router.replace(pathname + (qs ? `?${qs}` : ''))
           }
         }}
+      />
+
+      <FaltasDialog
+        isOpen={!!faltaCtx}
+        onClose={(updated) => {
+          setFaltaCtx(null)
+          if (updated) {
+            const qs = searchParams.toString()
+            router.replace(pathname + (qs ? `?${qs}` : ''))
+          }
+        }}
+        prestadorId={faltaCtx?.prestadorId ?? ''}
+        prestadorNome={faltaCtx?.prestadorNome ?? ''}
+        mesAtual={mesAtual}
+        faltas={faltaCtx ? (faltasByPrestador.get(faltaCtx.prestadorId) ?? []) : []}
       />
     </>
   )

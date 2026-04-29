@@ -1,7 +1,7 @@
 ﻿import Link from 'next/link'
 import { ArrowLeft, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
+import { addMonths, differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { aplicarProgressoes } from '@/app/progressao-salarial/actions'
 import MesSelector from '@/app/historico/mes-selector'
@@ -30,11 +30,14 @@ export default async function ResumoPage({
   const mesAtual = `${mesSelecionado}-01`
   const mesLabel = format(parseISO(mesAtual), "MMMM 'de' yyyy", { locale: ptBR })
 
-  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }] = await Promise.all([
+  const mesFimDate = format(addMonths(parseISO(mesAtual), 1), 'yyyy-MM-dd')
+
+  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }] = await Promise.all([
     supabase
       .from('prestadores')
-      .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix')
+      .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
       .eq('ativo', true)
+      .lt('data_inicio', mesFimDate)
       .order('nome'),
     supabase
       .from('emprestimos')
@@ -49,6 +52,11 @@ export default async function ResumoPage({
       .from('progressao_salarial')
       .select('prestador_id, salario_inicial, incremento, salario_alvo, mes_inicio')
       .eq('status', 'ativo'),
+    supabase
+      .from('faltas')
+      .select('id, prestador_id, data, motivo')
+      .gte('data', mesAtual)
+      .lt('data', mesFimDate),
   ])
 
   const mesSelDate = parseISO(mesAtual)
@@ -128,7 +136,7 @@ export default async function ResumoPage({
           <MesSelector mesAtual={mesSelecionado} basePath="/resumo" />
         </div>
 
-        <ResumoList items={items} pagoIds={pagoIds} mesAtual={mesAtual} />
+        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} faltas={faltasDoMes ?? []} />
       </main>
     </div>
   )
