@@ -32,7 +32,7 @@ export default async function ResumoPage({
 
   const mesFimDate = format(addMonths(parseISO(mesAtual), 1), 'yyyy-MM-dd')
 
-  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }] = await Promise.all([
+  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }, { data: nfSalario }] = await Promise.all([
     supabase
       .from('prestadores')
       .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
@@ -45,7 +45,7 @@ export default async function ResumoPage({
       .eq('status', 'ativo'),
     supabase
       .from('historico_pagamentos')
-      .select('prestador_id')
+      .select('prestador_id, nota_fiscal')
       .eq('tipo', 'salario')
       .eq('mes_referencia', mesAtual),
     supabase
@@ -57,6 +57,10 @@ export default async function ResumoPage({
       .select('id, prestador_id, data, motivo')
       .gte('data', mesAtual)
       .lt('data', mesFimDate),
+    supabase
+      .from('notas_fiscais_salario')
+      .select('prestador_id, enviada')
+      .eq('mes_referencia', mesAtual),
   ])
 
   const mesSelDate = parseISO(mesAtual)
@@ -95,6 +99,15 @@ export default async function ResumoPage({
   const pagoIds = (pagosNoMes ?? [])
     .map(p => p.prestador_id)
     .filter((id): id is string => id !== null)
+
+  const nfPendingMap: Record<string, boolean> = Object.fromEntries(
+    (nfSalario ?? []).map(nf => [nf.prestador_id, nf.enviada])
+  )
+  const nfPagoMap: Record<string, boolean> = Object.fromEntries(
+    (pagosNoMes ?? [])
+      .filter((p): p is { prestador_id: string; nota_fiscal: boolean } => p.prestador_id !== null)
+      .map(p => [p.prestador_id, p.nota_fiscal])
+  )
 
   const items = (prestadores ?? []).map(p => ({
     ...p,
@@ -136,7 +149,7 @@ export default async function ResumoPage({
           <MesSelector mesAtual={mesSelecionado} basePath="/resumo" />
         </div>
 
-        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} faltas={faltasDoMes ?? []} />
+        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} faltas={faltasDoMes ?? []} nfPendingMap={nfPendingMap} nfPagoMap={nfPagoMap} />
       </main>
     </div>
   )

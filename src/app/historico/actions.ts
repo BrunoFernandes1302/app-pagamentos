@@ -4,6 +4,18 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
 
+export async function atualizarNotaFiscalHistorico(id: string, notaFiscal: boolean) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('historico_pagamentos')
+    .update({ nota_fiscal: notaFiscal })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao atualizar nota fiscal.')
+  revalidatePath('/historico')
+}
+
 export async function atualizarComprovante(id: string, comprovante: string) {
   const orgId = await getOrganizationId()
   const supabase = await createClient()

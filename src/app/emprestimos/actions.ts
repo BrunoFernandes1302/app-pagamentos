@@ -73,6 +73,22 @@ export async function criarEmprestimo(data: {
   revalidatePath('/emprestimos')
 }
 
+export async function atualizarMesParcela(parcelaId: string, mesReferencia: string) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('parcelas_emprestimo')
+    .update({ mes_referencia: mesReferencia })
+    .eq('id', parcelaId)
+    .eq('status', 'pendente')
+    .eq('organization_id', orgId)
+
+  if (error) throw new Error('Erro ao atualizar data da parcela.')
+  revalidatePath('/emprestimos')
+  revalidatePath('/resumo')
+}
+
 export async function cancelarEmprestimo(id: string) {
   const orgId = await getOrganizationId()
   const supabase = await createClient()

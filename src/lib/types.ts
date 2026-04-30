@@ -67,6 +67,7 @@ export interface ComissaoPrestador {
   moeda_recebimento: MoedaSimples
   valor_comissao: number | null
   pago: boolean
+  nota_fiscal: boolean
   created_at: string
   prestadores: {
     nome: string
@@ -90,6 +91,7 @@ export interface HistoricoPagamento {
   valor: number
   moeda: MoedaSimples
   comprovante: string | null
+  nota_fiscal: boolean
   mes_referencia: string
   pago_em: string
   created_at: string

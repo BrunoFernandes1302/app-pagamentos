@@ -6,6 +6,7 @@ import MesSelector from './mes-selector'
 import ComprovanteEditor from './comprovante-editor'
 import PagoEmEditor from './pago-em-editor'
 import DeletePagamento from './delete-pagamento'
+import NfEditor from './nf-editor'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -76,6 +77,7 @@ function PagamentoCard({ p }: { p: HistoricoPagamento }) {
       <div className="px-5 py-3 space-y-2">
         <p className="text-sm text-muted-foreground">{p.descricao}</p>
         <ComprovanteEditor id={p.id} comprovante={p.comprovante} moeda={p.moeda} />
+        <NfEditor id={p.id} notaFiscal={p.nota_fiscal} />
       </div>
     </div>
   )

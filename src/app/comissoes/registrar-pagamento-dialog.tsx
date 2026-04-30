@@ -21,6 +21,7 @@ export interface PagamentoContext {
   chavePix: string | null
   valorSugerido: number | null
   rate: number | null
+  notaFiscal: boolean
   defaultMes: string
 }
 
@@ -101,6 +102,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
           moeda: context.moeda,
           comprovante: null,
           mesReferencia: `${selectedMes}-01`,
+          notaFiscal: context.notaFiscal,
         })
         onClose()
       } catch (e) {

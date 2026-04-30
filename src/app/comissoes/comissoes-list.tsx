@@ -1,11 +1,11 @@
 ﻿'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays, FileCheck2 } from 'lucide-react'
 import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
-import { excluirComissao } from './actions'
+import { excluirComissao, atualizarNotaFiscalComissao } from './actions'
 import ComissaoFormDialog from './comissao-form-dialog'
 import RegistrarPagamentoDialog, { type PagamentoContext } from './registrar-pagamento-dialog'
 
@@ -66,7 +66,17 @@ export default function ComissoesList({
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [pagamentoContext, setPagamentoContext] = useState<PagamentoContext | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [, startNfTransition] = useTransition()
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
+  const [nfState, setNfState] = useState<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {}
+    for (const c of comissoes) {
+      for (const cp of c.comissao_prestadores) {
+        map[cp.id] = cp.nota_fiscal
+      }
+    }
+    return map
+  })
 
   function copiar(id: string, valor: string) {
     navigator.clipboard.writeText(valor)
@@ -408,6 +418,28 @@ export default function ComissoesList({
                               Dados de pagamento em {cp.moeda_recebimento} não cadastrados.
                             </span>
                           )}
+                          {/* NF checkbox / indicador */}
+                          {cp.pago ? (
+                            nfState[cp.id]
+                              ? <span className="inline-flex items-center gap-1 text-xs text-emerald-400"><FileCheck2 className="h-3.5 w-3.5" />NF</span>
+                              : null
+                          ) : (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={nfState[cp.id] ?? false}
+                                title="Nota fiscal enviada"
+                                onChange={(e) => {
+                                  const v = e.target.checked
+                                  setNfState(prev => ({ ...prev, [cp.id]: v }))
+                                  startNfTransition(() => atualizarNotaFiscalComissao(cp.id, v))
+                                }}
+                                className="h-3.5 w-3.5 cursor-pointer accent-emerald-500"
+                              />
+                              NF
+                            </label>
+                          )}
+
                           {cp.pago ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/100/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
                               <CheckCircle2 className="h-3 w-3" />
@@ -428,6 +460,7 @@ export default function ComissoesList({
                                 chavePix: cp.prestadores?.chave_pix ?? null,
                                 valorSugerido: valorAtual,
                                 rate,
+                                notaFiscal: nfState[cp.id] ?? false,
                                 defaultMes: c.previsao_pagamento
                                   ? c.previsao_pagamento.substring(0, 7)
                                   : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,

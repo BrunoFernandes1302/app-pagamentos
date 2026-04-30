@@ -20,6 +20,7 @@ export interface SalarioPagamentoContext {
   dias: number
   defaultMes: string // 'YYYY-MM'
   parcelaIds: string[]
+  notaFiscal: boolean
 }
 
 const MESES = [
@@ -98,6 +99,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
           mesReferencia: `${selectedMes}-01`,
           descricao,
           parcelaIds: context.parcelaIds,
+          notaFiscal: context.notaFiscal,
         })
         onClose(selectedMes)
       } catch (e) {

@@ -110,6 +110,19 @@ export async function excluirComissao(id: string) {
   revalidatePath('/comissoes')
 }
 
+export async function atualizarNotaFiscalComissao(cpId: string, enviada: boolean) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('comissao_prestadores')
+    .update({ nota_fiscal: enviada })
+    .eq('id', cpId)
+    .eq('organization_id', orgId)
+
+  if (error) throw new Error('Erro ao atualizar nota fiscal.')
+}
+
 interface RegistrarPagamentoInput {
   cpId: string
   comissaoId: string
@@ -121,6 +134,7 @@ interface RegistrarPagamentoInput {
   moeda: MoedaSimples
   comprovante: string | null
   mesReferencia: string
+  notaFiscal: boolean
 }
 
 export async function registrarPagamentoComissao(input: RegistrarPagamentoInput) {
@@ -141,6 +155,7 @@ export async function registrarPagamentoComissao(input: RegistrarPagamentoInput)
       valor: input.valor,
       moeda: input.moeda,
       comprovante: input.comprovante,
+      nota_fiscal: input.notaFiscal,
       mes_referencia: input.mesReferencia,
       organization_id: orgId,
     })

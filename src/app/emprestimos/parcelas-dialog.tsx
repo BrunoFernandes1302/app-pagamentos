@@ -1,10 +1,10 @@
 ﻿'use client'
 
 import { useState, useTransition } from 'react'
-import { X, Loader2, ChevronsRight, Banknote, CheckCircle2 } from 'lucide-react'
+import { X, Loader2, ChevronsRight, Banknote, CheckCircle2, Pencil, Check } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { pagarParcela, adiantarParcela, pagamentoAvulso } from './actions'
+import { pagarParcela, adiantarParcela, pagamentoAvulso, atualizarMesParcela } from './actions'
 import type { Emprestimo, ParcelaEmprestimo, StatusParcela } from '@/lib/types'
 
 const STATUS: Record<StatusParcela, { label: string; cls: string }> = {
@@ -26,14 +26,89 @@ interface Props {
   onUpdate: () => void
 }
 
+function MesEditor({
+  parcelaId,
+  mesReferencia,
+  onSave,
+}: {
+  parcelaId: string
+  mesReferencia: string
+  onSave: (id: string, newDate: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(mesReferencia.substring(0, 7))
+  const [isPending, startTransition] = useTransition()
+
+  function handleSave() {
+    if (!value) return
+    const newDate = `${value}-01`
+    startTransition(async () => {
+      await atualizarMesParcela(parcelaId, newDate)
+      onSave(parcelaId, newDate)
+      setEditing(false)
+    })
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          type="month"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          autoFocus
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') { setValue(mesReferencia.substring(0, 7)); setEditing(false) }
+          }}
+          className="rounded border border-input bg-background px-1.5 py-0.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <button
+          onClick={handleSave}
+          disabled={isPending || !value}
+          className="rounded p-0.5 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40 transition-colors"
+          title="Confirmar"
+        >
+          {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+        </button>
+        <button
+          onClick={() => { setValue(mesReferencia.substring(0, 7)); setEditing(false) }}
+          className="rounded p-0.5 text-muted-foreground hover:bg-muted transition-colors"
+          title="Cancelar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 group/mes">
+      {format(parseISO(mesReferencia), 'MMMM/yyyy', { locale: ptBR })}
+      <button
+        onClick={() => setEditing(true)}
+        className="rounded p-0.5 text-muted-foreground/40 opacity-0 group-hover/mes:opacity-100 hover:text-muted-foreground transition-all"
+        title="Alterar mês"
+      >
+        <Pencil className="h-2.5 w-2.5" />
+      </button>
+    </span>
+  )
+}
+
 export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props) {
   const [isPending, startTransition] = useTransition()
   const [avulsoOpen, setAvulsoOpen] = useState(false)
   const [qtdAvulso, setQtdAvulso] = useState(1)
-
-  const parcelas = [...(emprestimo.parcelas_emprestimo ?? [])].sort(
-    (a, b) => a.numero_parcela - b.numero_parcela,
+  const [localParcelas, setLocalParcelas] = useState<ParcelaEmprestimo[]>(
+    () => [...(emprestimo.parcelas_emprestimo ?? [])].sort((a, b) => a.numero_parcela - b.numero_parcela)
   )
+
+  function handleMesSaved(id: string, newDate: string) {
+    setLocalParcelas(prev => prev.map(p => p.id === id ? { ...p, mes_referencia: newDate } : p))
+  }
+
+  const parcelas = localParcelas
   const pendentes = parcelas.filter(p => p.status === 'pendente')
   const pagas = parcelas.filter(p => p.status !== 'pendente')
   const maxAvulso = pendentes.length
@@ -141,12 +216,20 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground">{fmtValor(p.valor, p.moeda)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(parseISO(p.mes_referencia), 'MMMM/yyyy', { locale: ptBR })}
-                    {p.data_pagamento && (
-                      <> · pago em {format(parseISO(p.data_pagamento), 'dd/MM/yyyy')}</>
+                  <div className="text-xs text-muted-foreground">
+                    {p.status === 'pendente' && emprestimo.status === 'ativo' ? (
+                      <MesEditor
+                        parcelaId={p.id}
+                        mesReferencia={p.mes_referencia}
+                        onSave={handleMesSaved}
+                      />
+                    ) : (
+                      format(parseISO(p.mes_referencia), 'MMMM/yyyy', { locale: ptBR })
                     )}
-                  </p>
+                    {p.data_pagamento && (
+                      <span> · pago em {format(parseISO(p.data_pagamento), 'dd/MM/yyyy')}</span>
+                    )}
+                  </div>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0 ${st.cls}`}>
                   {st.label}

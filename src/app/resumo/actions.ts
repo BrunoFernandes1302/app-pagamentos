@@ -13,6 +13,25 @@ interface RegistrarPagamentoSalarioInput {
   mesReferencia: string
   descricao: string
   parcelaIds: string[]
+  notaFiscal: boolean
+}
+
+export async function atualizarNotaFiscalSalario(
+  prestadorId: string,
+  mesReferencia: string,
+  enviada: boolean,
+) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('notas_fiscais_salario')
+    .upsert(
+      { prestador_id: prestadorId, mes_referencia: mesReferencia, enviada, organization_id: orgId },
+      { onConflict: 'prestador_id,mes_referencia,organization_id' },
+    )
+
+  if (error) throw new Error('Erro ao atualizar nota fiscal.')
 }
 
 export async function registrarPagamentoSalario(input: RegistrarPagamentoSalarioInput) {
@@ -29,6 +48,7 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
     valor: input.valor,
     moeda: input.moeda,
     comprovante: null,
+    nota_fiscal: input.notaFiscal,
     mes_referencia: input.mesReferencia,
     organization_id: orgId,
     parcelas_emprestimo_ids: input.parcelaIds.length > 0 ? input.parcelaIds : null,

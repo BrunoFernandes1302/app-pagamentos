@@ -1,11 +1,12 @@
 ﻿'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2 } from 'lucide-react'
+import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2, FileCheck2 } from 'lucide-react'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import type { TipoContrato, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
+import { atualizarNotaFiscalSalario } from './actions'
 import RegistrarPagamentoSalarioDialog, { type SalarioPagamentoContext } from './registrar-pagamento-dialog'
 import FaltasDialog, { type FaltaItem } from './faltas-dialog'
 
@@ -32,6 +33,8 @@ interface Props {
   pagoIds: string[]
   mesAtual: string // 'YYYY-MM-DD'
   faltas: FaltaItem[]
+  nfPendingMap: Record<string, boolean>
+  nfPagoMap: Record<string, boolean>
 }
 
 const CONTRATO_BADGE: Record<TipoContrato, string> = {
@@ -71,11 +74,13 @@ function getMesAtual() {
 
 type Filtro = 'pendentes' | 'pagas'
 
-export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) {
+export default function ResumoList({ items, pagoIds, mesAtual, faltas, nfPendingMap, nfPagoMap }: Props) {
   const { rate } = useExchangeRate()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [, startNfTransition] = useTransition()
+  const [nfState, setNfState] = useState<Record<string, boolean>>(nfPendingMap)
 
   const faltasByPrestador = useMemo(() => {
     const map = new Map<string, FaltaItem[]>()
@@ -187,6 +192,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) 
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Dias</th>
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Pagamento final</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Via / Dados</th>
+                <th className="px-4 py-3 text-center font-medium text-muted-foreground">NF</th>
                 <th className="px-4 py-3 text-center font-medium text-muted-foreground">Ação</th>
               </tr>
             </thead>
@@ -213,11 +219,11 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) 
                   }
                 }
 
-                const salarioLiquido = item.salario_base - deducao
-                const pagamentoBruto = (salarioLiquido / 30) * dias
+                const proporcional = (item.salario_base / 30) * dias
+                const liquido = proporcional - deducao
                 const pagamentoFinal = converte
-                  ? rate ? pagamentoBruto / rate : null
-                  : pagamentoBruto
+                  ? rate ? liquido / rate : null
+                  : liquido
 
                 const dadosPagamento = item.contrato === 'BRL'
                   ? item.chave_pix
@@ -285,7 +291,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) 
                             {pagamentoFinal !== null ? fmtUSDT(pagamentoFinal) : '—'}
                           </p>
                           <p className="text-xs text-muted-foreground tabular-nums">
-                            {fmtBRL(pagamentoBruto)}
+                            {fmtBRL(liquido)}
                           </p>
                         </div>
                       ) : (
@@ -340,6 +346,27 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) 
                       </div>
                     </td>
 
+                    {/* NF */}
+                    <td className="px-4 py-3 text-center">
+                      {jaPago ? (
+                        nfPagoMap[item.id]
+                          ? <span title="Nota fiscal enviada"><FileCheck2 className="h-4 w-4 mx-auto text-emerald-400" /></span>
+                          : <span className="text-muted-foreground/40 text-sm">—</span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={nfState[item.id] ?? false}
+                          title="Nota fiscal enviada"
+                          onChange={(e) => {
+                            const v = e.target.checked
+                            setNfState(prev => ({ ...prev, [item.id]: v }))
+                            startNfTransition(() => atualizarNotaFiscalSalario(item.id, mesAtual, v))
+                          }}
+                          className="h-4 w-4 cursor-pointer accent-teal-500"
+                        />
+                      )}
+                    </td>
+
                     {/* Ação */}
                     <td className="px-4 py-3 text-center">
                       {jaPago ? (
@@ -361,6 +388,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas }: Props) 
                             dias,
                             defaultMes,
                             parcelaIds: item.parcelas.map(p => p.id),
+                            notaFiscal: nfState[item.id] ?? false,
                           })}
                           className="rounded-lg bg-teal-500/10 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-500/100/20 transition-colors"
                         >
