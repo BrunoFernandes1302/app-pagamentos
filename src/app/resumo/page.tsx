@@ -1,7 +1,7 @@
 ﻿import Link from 'next/link'
 import { ArrowLeft, Receipt } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { addMonths, differenceInMonths, format, parseISO, startOfMonth } from 'date-fns'
+import { addMonths, differenceInMonths, format, parseISO, startOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { aplicarProgressoes } from '@/app/progressao-salarial/actions'
 import MesSelector from '@/app/historico/mes-selector'
@@ -31,6 +31,8 @@ export default async function ResumoPage({
   const mesLabel = format(parseISO(mesAtual), "MMMM 'de' yyyy", { locale: ptBR })
 
   const mesFimDate = format(addMonths(parseISO(mesAtual), 1), 'yyyy-MM-dd')
+  // Faltas do mês anterior: o Resumo de Abril paga Março, então usa faltas de Março
+  const mesAnteriorStr = format(subMonths(parseISO(mesAtual), 1), 'yyyy-MM-dd')
 
   const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }, { data: nfSalario }] = await Promise.all([
     supabase
@@ -55,8 +57,8 @@ export default async function ResumoPage({
     supabase
       .from('faltas')
       .select('id, prestador_id, data, motivo')
-      .gte('data', mesAtual)
-      .lt('data', mesFimDate),
+      .gte('data', mesAnteriorStr)
+      .lt('data', mesAtual),
     supabase
       .from('notas_fiscais_salario')
       .select('prestador_id, enviada')
@@ -149,7 +151,7 @@ export default async function ResumoPage({
           <MesSelector mesAtual={mesSelecionado} basePath="/resumo" />
         </div>
 
-        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} faltas={faltasDoMes ?? []} nfPendingMap={nfPendingMap} nfPagoMap={nfPagoMap} />
+        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} mesReferencia={mesAnteriorStr} faltas={faltasDoMes ?? []} nfPendingMap={nfPendingMap} nfPagoMap={nfPagoMap} />
       </main>
     </div>
   )

@@ -31,7 +31,8 @@ interface Item {
 interface Props {
   items: Item[]
   pagoIds: string[]
-  mesAtual: string // 'YYYY-MM-DD'
+  mesAtual: string     // 'YYYY-MM-DD' — mês do pagamento
+  mesReferencia: string // 'YYYY-MM-DD' — mês anterior (período de trabalho)
   faltas: FaltaItem[]
   nfPendingMap: Record<string, boolean>
   nfPagoMap: Record<string, boolean>
@@ -74,7 +75,7 @@ function getMesAtual() {
 
 type Filtro = 'pendentes' | 'pagas'
 
-export default function ResumoList({ items, pagoIds, mesAtual, faltas, nfPendingMap, nfPagoMap }: Props) {
+export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, faltas, nfPendingMap, nfPagoMap }: Props) {
   const { rate } = useExchangeRate()
   const router = useRouter()
   const pathname = usePathname()
@@ -429,7 +430,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, faltas, nfPending
         }}
         prestadorId={faltaCtx?.prestadorId ?? ''}
         prestadorNome={faltaCtx?.prestadorNome ?? ''}
-        mesAtual={mesAtual}
+        mesAtual={mesReferencia}
         faltas={faltaCtx ? (faltasByPrestador.get(faltaCtx.prestadorId) ?? []) : []}
       />
     </>
