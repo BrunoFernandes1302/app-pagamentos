@@ -7,6 +7,7 @@ import CotacaoWidget from '@/app/comissoes/cotacao-widget'
 import Link from 'next/link'
 import { Settings } from 'lucide-react'
 import ThemeToggle from '@/components/theme-toggle'
+import ExportFab from '@/components/export-fab'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -87,6 +88,7 @@ export default async function RootLayout({
           </div>
         )}
         {children}
+        {user && <ExportFab />}
       </body>
     </html>
   )
