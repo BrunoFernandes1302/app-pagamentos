@@ -92,6 +92,7 @@ export interface HistoricoPagamento {
   moeda: MoedaSimples
   comprovante: string | null
   nota_fiscal: boolean
+  email_enviado: boolean
   mes_referencia: string
   pago_em: string
   created_at: string

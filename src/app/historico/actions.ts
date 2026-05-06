@@ -16,6 +16,30 @@ export async function atualizarNotaFiscalHistorico(id: string, notaFiscal: boole
   revalidatePath('/historico')
 }
 
+export async function atualizarEmailEnviado(id: string, enviado: boolean) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('historico_pagamentos')
+    .update({ email_enviado: enviado })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao atualizar status de email.')
+  revalidatePath('/historico')
+}
+
+export async function marcarEmailsEnviados(ids: string[]) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('historico_pagamentos')
+    .update({ email_enviado: true })
+    .in('id', ids)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao marcar emails como enviados.')
+  revalidatePath('/historico')
+}
+
 export async function atualizarComprovante(id: string, comprovante: string) {
   const orgId = await getOrganizationId()
   const supabase = await createClient()

@@ -1,0 +1,2 @@
+ALTER TABLE historico_pagamentos
+  ADD COLUMN IF NOT EXISTS email_enviado BOOLEAN NOT NULL DEFAULT FALSE;

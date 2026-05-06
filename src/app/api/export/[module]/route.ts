@@ -264,7 +264,7 @@ export async function GET(
     case 'historico': {
       const { data } = await supabase
         .from('historico_pagamentos')
-        .select('*')
+        .select('*, prestadores(email)')
         .eq('mes_referencia', mesDate)
         .order('pago_em', { ascending: false })
 
@@ -272,6 +272,7 @@ export async function GET(
         'Data Pagamento': fmtData(p.pago_em),
         'Tipo': p.tipo === 'comissao' ? 'Comissão' : 'Salário',
         'Prestador': p.prestador_nome,
+        'Email': (p.prestadores as { email: string } | null)?.email ?? '',
         'Descrição': p.descricao,
         'Valor': p.valor,
         'Moeda': p.moeda,

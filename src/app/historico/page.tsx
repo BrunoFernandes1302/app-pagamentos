@@ -7,6 +7,9 @@ import ComprovanteEditor from './comprovante-editor'
 import PagoEmEditor from './pago-em-editor'
 import DeletePagamento from './delete-pagamento'
 import NfEditor from './nf-editor'
+import EmailStatusEditor from './email-status-editor'
+import EmailVbaDialog from './email-vba-dialog'
+import type { HistoricoParaEmail } from './email-vba-dialog'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -78,6 +81,7 @@ function PagamentoCard({ p }: { p: HistoricoPagamento }) {
         <p className="text-sm text-muted-foreground">{p.descricao}</p>
         <ComprovanteEditor id={p.id} comprovante={p.comprovante} moeda={p.moeda} />
         <NfEditor id={p.id} notaFiscal={p.nota_fiscal} />
+        {p.moeda === 'USDT' && <EmailStatusEditor id={p.id} emailEnviado={p.email_enviado} />}
       </div>
     </div>
   )
@@ -98,11 +102,24 @@ export default async function HistoricoPage({
   const supabase = await createClient()
   const { data: pagamentos, error } = await supabase
     .from('historico_pagamentos')
-    .select('*')
+    .select('*, prestadores(email)')
     .eq('mes_referencia', mesReferencia)
     .order('pago_em', { ascending: false })
 
-  const lista: HistoricoPagamento[] = pagamentos ?? []
+  const lista: HistoricoPagamento[] = (pagamentos ?? []) as HistoricoPagamento[]
+
+  const pagamentosEmail: HistoricoParaEmail[] = (pagamentos ?? [])
+    .filter(p => p.moeda === 'USDT' && p.comprovante && !p.email_enviado)
+    .map(p => ({
+      id: p.id,
+      tipo: p.tipo,
+      prestador_nome: p.prestador_nome,
+      prestador_email: (p.prestadores as { email: string } | null)?.email ?? null,
+      descricao: p.descricao,
+      valor: p.valor,
+      comprovante: p.comprovante!,
+      mes_referencia: p.mes_referencia,
+    }))
 
   const comissoes = lista.filter(p => p.tipo === 'comissao')
   const salarios = lista.filter(p => p.tipo === 'salario')
@@ -148,7 +165,10 @@ export default async function HistoricoPage({
               <p className="text-sm text-muted-foreground">{nomeMes}</p>
             </div>
           </div>
-          <MesSelector mesAtual={mesAtual} />
+          <div className="flex items-center gap-3">
+            <EmailVbaDialog pagamentos={pagamentosEmail} />
+            <MesSelector mesAtual={mesAtual} />
+          </div>
         </div>
 
         {error ? (
