@@ -39,7 +39,7 @@ export default async function ResumoPage({
       .from('prestadores')
       .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
       .eq('ativo', true)
-      .lt('data_inicio', mesFimDate)
+      .lt('data_inicio', mesAtual)
       .order('nome'),
     supabase
       .from('emprestimos')
