@@ -70,6 +70,7 @@ function generateVBA(sender: string, rows: HistoricoParaEmail[]): string {
     Dim sBody       As String
     Dim sAssinatura As String
     Dim i           As Integer
+    Dim tentativas  As Integer
     Dim arrEmail(${last}) As String
     Dim arrBody(${last})  As String
 
@@ -81,8 +82,13 @@ ${assignments}
             .To = arrEmail(i)
             .Subject = "Comprovante de Pagamento"
 ${sentOnBehalf}${bcc}            .Display
-            Application.Wait Now + TimeSerial(0, 0, 1)
-            DoEvents
+            ' Aguarda assinatura carregar (loop de até 10s)
+            tentativas = 0
+            Do While Len(.HTMLBody) < 50 And tentativas < 20
+                Application.Wait Now + TimeSerial(0, 0, 0) + (500 / 86400000)
+                DoEvents
+                tentativas = tentativas + 1
+            Loop
             sAssinatura = .HTMLBody
             sBody = "<p style='font-family:Calibri;font-size:11pt;'>" & _
                     Replace(arrBody(i), vbCrLf, "<br>") & _
