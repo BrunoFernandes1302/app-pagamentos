@@ -13,7 +13,7 @@ import type { Emprestimo } from '@/lib/types'
 const schema = z.object({
   prestador_id: z.string().min(1, 'Selecione um prestador'),
   valor_total: z.coerce.number().positive('Deve ser maior que zero'),
-  moeda: z.enum(['BRL', 'USDT']),
+  moeda: z.enum(['BRL', 'USDT', 'USDC']),
   numero_parcelas: z.coerce.number().int().min(1, 'Mínimo 1').max(120),
   mes_inicio: z.string().optional(),
   modo_multiplos: z.enum(['sequencial', 'acumulado']).optional(),
@@ -73,7 +73,7 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
 
   const fmt = (v: number) => moeda === 'BRL'
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-    : `${v.toFixed(4)} USDT`
+    : `${v.toFixed(4)} ${moeda}`
 
   const onSubmit = (data: FormData) => {
     const precisaMesInicio = !emprestimoAtivo || data.modo_multiplos === 'acumulado'
@@ -92,7 +92,7 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
           prestador_id: data.prestador_id,
           valor_total: data.valor_total,
           numero_parcelas: data.numero_parcelas,
-          moeda: data.moeda as 'BRL' | 'USDT',
+          moeda: data.moeda as 'BRL' | 'USDT' | 'USDC',
           mes_inicio: data.mes_inicio ?? format(new Date(), 'yyyy-MM'),
           modo_multiplos: data.modo_multiplos,
           emprestimo_ativo_id: emprestimoAtivo?.id,
@@ -133,9 +133,9 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
 
           {/* Aviso: prestador já tem empréstimo ativo */}
           {emprestimoAtivo && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-2">
-              <p className="font-medium text-amber-300">Este prestador já possui empréstimo ativo</p>
-              <p className="text-xs text-amber-400">
+            <div className="rounded-lg border-2 border-amber-400 bg-white px-4 py-3 text-sm space-y-2">
+              <p className="font-semibold text-gray-900">Este prestador já possui empréstimo ativo</p>
+              <p className="text-xs text-gray-600">
                 {emprestimoAtivo.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {emprestimoAtivo.moeda}
                 {' · '}
                 {emprestimoAtivo.parcelas_emprestimo?.filter(p => p.status === 'pendente').length ?? '?'} parcelas restantes
@@ -146,8 +146,8 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
                   ['acumulado', 'Acumulado — parcelas somam no mesmo mês'],
                 ] as const).map(([val, label]) => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" {...register('modo_multiplos')} value={val} className="accent-blue-600" />
-                    <span className="text-amber-300 text-xs">{label}</span>
+                    <input type="radio" {...register('modo_multiplos')} value={val} className="accent-amber-600" />
+                    <span className="text-gray-800 text-xs">{label}</span>
                   </label>
                 ))}
               </div>
@@ -179,6 +179,7 @@ export default function EmprestimoFormDialog({ prestadores, emprestimosAtivos, o
               >
                 <option value="BRL">BRL</option>
                 <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
               </select>
             </div>
           </div>

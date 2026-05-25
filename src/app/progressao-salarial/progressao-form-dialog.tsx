@@ -8,7 +8,7 @@ import { X, Loader2 } from 'lucide-react'
 import { addMonths, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { criarProgressao, atualizarProgressao } from './actions'
-import type { ProgressaoSalarial, TipoContrato } from '@/lib/types'
+import type { ProgressaoSalarial, TipoContrato, CriptoMoeda } from '@/lib/types'
 
 const schema = z
   .object({
@@ -29,6 +29,7 @@ export type PrestadorSimples = {
   id: string
   nome: string
   contrato: TipoContrato
+  cripto_moeda: CriptoMoeda
   salario_base: number
 }
 
@@ -103,7 +104,7 @@ export default function ProgressaoFormDialog({
   ])
 
   const selectedPrestador = prestadores.find((p) => p.id === prestadorId)
-  const moedaLabel = selectedPrestador?.contrato === 'USDT' ? 'USDT' : 'R$'
+  const moedaLabel = selectedPrestador?.contrato === 'USDT' ? (selectedPrestador.cripto_moeda ?? 'USDT') : 'R$'
 
   const preview = calcularPreview(salarioInicial, incremento, salarioAlvo, mesInicio || getMesAtual())
 

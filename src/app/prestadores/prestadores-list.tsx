@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Loader2, Users } from 'lucide-react'
 import type { Prestador } from '@/lib/types'
+import { CONTRATO_LABEL } from '@/lib/types'
 import { alternarAtivo, excluirPrestador } from './actions'
 import PrestadorFormDialog from './prestador-form-dialog'
 
@@ -12,9 +13,9 @@ const CONTRATO_STYLE: Record<string, string> = {
   BRL: 'bg-emerald-500/100/15 text-emerald-300',
 }
 
-function formatSalario(value: number, contrato: string) {
+function formatSalario(value: number, contrato: string, cripto_moeda: string) {
   if (contrato === 'USDT') {
-    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} USDT`
+    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${cripto_moeda}`
   }
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
@@ -119,11 +120,11 @@ export default function PrestadoresList({ prestadores }: { prestadores: Prestado
                         <span
                           className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${CONTRATO_STYLE[p.contrato]}`}
                         >
-                          {p.contrato}
+                          {CONTRATO_LABEL[p.contrato]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-foreground">
-                        {formatSalario(p.salario_base, p.contrato)}
+                        {formatSalario(p.salario_base, p.contrato, p.cripto_moeda)}
                       </td>
                       <td className="px-4 py-3 text-center text-foreground">
                         {p.dia_pagamento}

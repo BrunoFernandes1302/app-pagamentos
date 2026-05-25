@@ -175,7 +175,7 @@ export async function GET(
       } catch { /* segue sem cotação */ }
 
       const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }] = await Promise.all([
-        supabase.from('prestadores').select('id, nome, contrato, salario_base').eq('organization_id', orgId).eq('ativo', true).lt('data_inicio', mesDate).order('nome'),
+        supabase.from('prestadores').select('id, nome, contrato, cripto_moeda, salario_base').eq('organization_id', orgId).eq('ativo', true).lt('data_inicio', mesDate).order('nome'),
         supabase.from('emprestimos').select('id, prestador_id').eq('organization_id', orgId).eq('status', 'ativo'),
         supabase.from('historico_pagamentos').select('prestador_id').eq('tipo', 'salario').eq('mes_referencia', mesDate),
         supabase.from('progressao_salarial').select('prestador_id, salario_inicial, incremento, salario_alvo, mes_inicio').eq('status', 'ativo'),
@@ -225,8 +225,9 @@ export async function GET(
         const dias = Math.max(1, 30 - faltas)
         const parcelas = parcelasMap.get(p.id) ?? []
 
-        const base: 'USDT' | 'BRL' = p.contrato === 'USDT' ? 'USDT' : 'BRL'
-        const pagto: 'USDT' | 'BRL' = p.contrato === 'BRL' ? 'BRL' : 'USDT'
+        const cripto = (p as { cripto_moeda?: string }).cripto_moeda ?? 'USDT'
+        const base = p.contrato === 'USDT' ? cripto : 'BRL'
+        const pagto = p.contrato === 'BRL' ? 'BRL' : cripto
         const converte = base !== pagto
 
         let deducao = 0
@@ -255,7 +256,7 @@ export async function GET(
           'Moeda Base': base,
           'Pagamento Final': pagamentoFinal != null ? fmt2(pagamentoFinal) : '',
           'Moeda Pagamento': pagto,
-          'Cotação USDT/BRL': (converte || parcelas.some(x => x.moeda !== base)) && rate ? parseFloat(rate.toFixed(4)) : '',
+          'Cotação USD/BRL': (converte || parcelas.some(x => x.moeda !== base)) && rate ? parseFloat(rate.toFixed(4)) : '',
           'Pago': pagoSet.has(p.id) ? 'Sim' : 'Não',
         }
       })

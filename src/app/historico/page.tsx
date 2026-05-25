@@ -28,8 +28,8 @@ function validarMes(mes: string | undefined): string {
 }
 
 function formatValor(valor: number, moeda: MoedaSimples) {
-  if (moeda === 'USDT')
-    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} USDT`
+  if (moeda !== 'BRL')
+    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${moeda}`
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
 }
 
@@ -43,8 +43,8 @@ function ResumoCard({ label, valor, moeda, count }: {
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
       <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
-        {moeda === 'USDT'
-          ? `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} USDT`
+        {moeda !== 'BRL'
+          ? `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${moeda}`
           : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)}
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">{count} pagamento{count !== 1 ? 's' : ''}</p>
@@ -81,7 +81,7 @@ function PagamentoCard({ p }: { p: HistoricoPagamento }) {
         <p className="text-sm text-muted-foreground">{p.descricao}</p>
         <ComprovanteEditor id={p.id} comprovante={p.comprovante} moeda={p.moeda} />
         <NfEditor id={p.id} notaFiscal={p.nota_fiscal} />
-        {p.moeda === 'USDT' && <EmailStatusEditor id={p.id} emailEnviado={p.email_enviado} />}
+        {p.moeda !== 'BRL' && <EmailStatusEditor id={p.id} emailEnviado={p.email_enviado} />}
       </div>
     </div>
   )
@@ -109,7 +109,7 @@ export default async function HistoricoPage({
   const lista: HistoricoPagamento[] = (pagamentos ?? []) as HistoricoPagamento[]
 
   const pagamentosEmail: HistoricoParaEmail[] = (pagamentos ?? [])
-    .filter(p => p.moeda === 'USDT' && p.comprovante && !p.email_enviado)
+    .filter(p => p.moeda !== 'BRL' && p.comprovante && !p.email_enviado)
     .map(p => ({
       id: p.id,
       tipo: p.tipo,
@@ -124,18 +124,26 @@ export default async function HistoricoPage({
   const comissoes = lista.filter(p => p.tipo === 'comissao')
   const salarios = lista.filter(p => p.tipo === 'salario')
 
-  const comissaoTotalUsdt = comissoes.filter(p => p.moeda === 'USDT').reduce((s, p) => s + p.valor, 0)
+  const comissaoUsdtItems = comissoes.filter(p => p.moeda === 'USDT')
+  const comissaoUsdcItems = comissoes.filter(p => p.moeda === 'USDC')
+  const comissaoTotalUsdt = comissaoUsdtItems.reduce((s, p) => s + p.valor, 0)
+  const comissaoTotalUsdc = comissaoUsdcItems.reduce((s, p) => s + p.valor, 0)
   const comissaoTotalBrl = comissoes.filter(p => p.moeda === 'BRL').reduce((s, p) => s + p.valor, 0)
-  const comissaoCountUsdt = comissoes.filter(p => p.moeda === 'USDT').length
+  const comissaoCountUsdt = comissaoUsdtItems.length
+  const comissaoCountUsdc = comissaoUsdcItems.length
   const comissaoCountBrl = comissoes.filter(p => p.moeda === 'BRL').length
 
-  const salarioTotalUsdt = salarios.filter(p => p.moeda === 'USDT').reduce((s, p) => s + p.valor, 0)
+  const salarioUsdtItems = salarios.filter(p => p.moeda === 'USDT')
+  const salarioUsdcItems = salarios.filter(p => p.moeda === 'USDC')
+  const salarioTotalUsdt = salarioUsdtItems.reduce((s, p) => s + p.valor, 0)
+  const salarioTotalUsdc = salarioUsdcItems.reduce((s, p) => s + p.valor, 0)
   const salarioTotalBrl = salarios.filter(p => p.moeda === 'BRL').reduce((s, p) => s + p.valor, 0)
-  const salarioCountUsdt = salarios.filter(p => p.moeda === 'USDT').length
+  const salarioCountUsdt = salarioUsdtItems.length
+  const salarioCountUsdc = salarioUsdcItems.length
   const salarioCountBrl = salarios.filter(p => p.moeda === 'BRL').length
 
-  const temResumoComissoes = comissaoCountUsdt > 0 || comissaoCountBrl > 0
-  const temResumoSalarios = salarioCountUsdt > 0 || salarioCountBrl > 0
+  const temResumoComissoes = comissaoCountUsdt > 0 || comissaoCountUsdc > 0 || comissaoCountBrl > 0
+  const temResumoSalarios = salarioCountUsdt > 0 || salarioCountUsdc > 0 || salarioCountBrl > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -189,6 +197,9 @@ export default async function HistoricoPage({
                       {comissaoCountUsdt > 0 && (
                         <ResumoCard label="Total USDT" valor={comissaoTotalUsdt} moeda="USDT" count={comissaoCountUsdt} />
                       )}
+                      {comissaoCountUsdc > 0 && (
+                        <ResumoCard label="Total USDC" valor={comissaoTotalUsdc} moeda="USDC" count={comissaoCountUsdc} />
+                      )}
                       {comissaoCountBrl > 0 && (
                         <ResumoCard label="Total BRL" valor={comissaoTotalBrl} moeda="BRL" count={comissaoCountBrl} />
                       )}
@@ -203,6 +214,9 @@ export default async function HistoricoPage({
                     <div className="grid grid-cols-2 gap-4">
                       {salarioCountUsdt > 0 && (
                         <ResumoCard label="Total USDT" valor={salarioTotalUsdt} moeda="USDT" count={salarioCountUsdt} />
+                      )}
+                      {salarioCountUsdc > 0 && (
+                        <ResumoCard label="Total USDC" valor={salarioTotalUsdc} moeda="USDC" count={salarioCountUsdc} />
                       )}
                       {salarioCountBrl > 0 && (
                         <ResumoCard label="Total BRL" valor={salarioTotalBrl} moeda="BRL" count={salarioCountBrl} />

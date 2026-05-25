@@ -6,7 +6,8 @@ import { Plus, Pencil, XCircle, CalendarDays, TrendingUp } from 'lucide-react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addMonths, differenceInMonths, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { ProgressaoSalarial, TipoContrato } from '@/lib/types'
+import type { ProgressaoSalarial, TipoContrato, CriptoMoeda } from '@/lib/types'
+import { CONTRATO_LABEL } from '@/lib/types'
 import { cancelarProgressao } from './actions'
 import ProgressaoFormDialog, { type PrestadorSimples } from './progressao-form-dialog'
 import CronogramaDialog from './cronograma-dialog'
@@ -17,11 +18,11 @@ const MESES = [
 ]
 
 type ProgressaoComPrestador = ProgressaoSalarial & {
-  prestadores: { nome: string; contrato: TipoContrato } | null
+  prestadores: { nome: string; contrato: TipoContrato; cripto_moeda: CriptoMoeda } | null
 }
 
 type ProgressaoAtiva = ProgressaoSalarial & {
-  prestadores: { nome: string; contrato: TipoContrato }
+  prestadores: { nome: string; contrato: TipoContrato; cripto_moeda: CriptoMoeda }
 }
 
 function getMesAtual() {
@@ -48,9 +49,9 @@ function getMesesDecorridos(p: ProgressaoSalarial, mes: string): number {
   return Math.min(differenceInMonths(mesSel, mesInicio) + 1, getTotalMeses(p))
 }
 
-function formatValor(valor: number, contrato: TipoContrato): string {
+function formatValor(valor: number, contrato: TipoContrato, cripto_moeda: CriptoMoeda): string {
   if (contrato === 'USDT') {
-    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} USDT`
+    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${cripto_moeda}`
   }
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
 }
@@ -154,6 +155,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
         <div className="space-y-4 mb-8">
           {progressoesAtivas.map((p) => {
             const contrato = p.prestadores.contrato
+            const cripto_moeda = p.prestadores.cripto_moeda
             const salarioAtual = getSalarioMes(p, mes)
             const totalMeses = getTotalMeses(p)
             const mesesDecorridos = getMesesDecorridos(p, mes)
@@ -191,11 +193,11 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        {formatValor(p.salario_inicial, contrato)}
+                        {formatValor(p.salario_inicial, contrato, cripto_moeda)}
                         {' → '}
-                        {formatValor(p.salario_alvo, contrato)}
+                        {formatValor(p.salario_alvo, contrato, cripto_moeda)}
                         {' · +'}
-                        {formatValor(p.incremento, contrato)}
+                        {formatValor(p.incremento, contrato, cripto_moeda)}
                         /mês
                       </p>
                     </div>
@@ -254,7 +256,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                     <>
                       <div className="flex items-baseline gap-2 mb-3">
                         <span className="text-2xl font-bold tabular-nums text-foreground">
-                          {formatValor(salarioAtual, contrato)}
+                          {formatValor(salarioAtual, contrato, cripto_moeda)}
                         </span>
                         <span className="text-sm text-muted-foreground">
                           em {MESES[mesNum - 1].toLowerCase()}
@@ -317,7 +319,7 @@ export default function ProgressaoList({ progressoes, prestadores }: Props) {
                 <div>
                   <p className="text-sm font-medium text-foreground">{p.nome}</p>
                   <p className="text-xs text-muted-foreground">
-                    Salário atual: {formatValor(p.salario_base, p.contrato)}
+                    Salário atual: {formatValor(p.salario_base, p.contrato, p.cripto_moeda)}
                   </p>
                 </div>
                 <button

@@ -1,4 +1,11 @@
 export type TipoContrato = 'USDT' | 'USDT/BRL' | 'BRL'
+export type CriptoMoeda = 'USDT' | 'USDC'
+
+export const CONTRATO_LABEL: Record<TipoContrato, string> = {
+  USDT: 'USD',
+  'USDT/BRL': 'USD/BRL',
+  BRL: 'BRL',
+}
 
 export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
 
@@ -38,6 +45,7 @@ export interface Prestador {
   dia_pagamento: number
   carteira_cripto: string | null
   rede_cripto: string | null
+  cripto_moeda: CriptoMoeda
   chave_pix: string | null
   tipo_chave_pix: TipoChavePix | null
   ativo: boolean
@@ -47,7 +55,7 @@ export interface Prestador {
 
 export type PrestadorInput = Omit<Prestador, 'id' | 'created_at' | 'updated_at'>
 
-export type MoedaSimples = 'USDT' | 'BRL'
+export type MoedaSimples = 'USDT' | 'USDC' | 'BRL'
 
 export interface PrestadorResumido {
   id: string
@@ -55,6 +63,7 @@ export interface PrestadorResumido {
   ativo: boolean
   carteira_cripto: string | null
   rede_cripto: string | null
+  cripto_moeda: CriptoMoeda
   chave_pix: string | null
   tipo_chave_pix: TipoChavePix | null
 }
@@ -108,6 +117,17 @@ export interface Comissao {
   created_at: string
   updated_at: string
   comissao_prestadores: ComissaoPrestador[]
+  // Parcelada
+  grupo_id: string | null
+  parcela_num: number | null
+  total_parcelas: number | null
+  // Recorrente
+  recorrente: boolean
+  recorrencia_tipo: 'dia_mes' | 'dia_semana' | null
+  recorrencia_valor: number | null
+  recorrencia_ativa: boolean
+  recorrencia_origem_id: string | null
+  proxima_recorrencia: string | null
 }
 
 export type StatusProgressao = 'ativo' | 'concluido' | 'cancelado'
@@ -121,7 +141,7 @@ export interface ProgressaoSalarial {
   mes_inicio: string // 'YYYY-MM-DD'
   status: StatusProgressao
   created_at: string
-  prestadores?: { nome: string; contrato: TipoContrato }
+  prestadores?: { nome: string; contrato: TipoContrato; cripto_moeda: CriptoMoeda }
 }
 
 export type StatusEmprestimo = 'ativo' | 'quitado' | 'cancelado'

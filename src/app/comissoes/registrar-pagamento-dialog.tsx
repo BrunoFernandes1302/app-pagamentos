@@ -113,7 +113,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
 
   if (!context) return null
 
-  const isUsdt = context.moeda === 'USDT'
+  const isUsdt = context.moeda !== 'BRL'
   const paymentInfo = isUsdt ? context.carteiraCripto : context.chavePix
   const [anoNum, mesNum] = selectedMes.split('-').map(Number)
   const nomeMes = `${MESES[mesNum - 1]} ${anoNum}`

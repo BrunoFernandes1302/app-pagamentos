@@ -3,21 +3,21 @@
 import { X } from 'lucide-react'
 import { addMonths, format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { ProgressaoSalarial, TipoContrato } from '@/lib/types'
+import type { ProgressaoSalarial, TipoContrato, CriptoMoeda } from '@/lib/types'
 
 function getSalarioMes(p: ProgressaoSalarial, n: number): number {
   return Math.min(p.salario_inicial + p.incremento * (n + 1), p.salario_alvo)
 }
 
-function formatValor(valor: number, contrato: TipoContrato): string {
+function formatValor(valor: number, contrato: TipoContrato, cripto_moeda: CriptoMoeda): string {
   if (contrato === 'USDT') {
-    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`
+    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cripto_moeda}`
   }
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
 }
 
 interface Props {
-  progressao: ProgressaoSalarial & { prestadores: { nome: string; contrato: TipoContrato } }
+  progressao: ProgressaoSalarial & { prestadores: { nome: string; contrato: TipoContrato; cripto_moeda: CriptoMoeda } }
   onClose: () => void
 }
 
@@ -27,6 +27,7 @@ export default function CronogramaDialog({ progressao, onClose }: Props) {
   )
   const mesInicioDate = parseISO(progressao.mes_inicio)
   const contrato = progressao.prestadores.contrato
+  const cripto_moeda = progressao.prestadores.cripto_moeda
 
   const rows = Array.from({ length: totalMeses }, (_, i) => {
     const mes = addMonths(mesInicioDate, i)
@@ -78,10 +79,10 @@ export default function CronogramaDialog({ progressao, onClose }: Props) {
                         {format(mes, 'MMM/yyyy', { locale: ptBR })}
                       </td>
                       <td className="px-5 py-2.5 text-right font-mono font-medium text-foreground">
-                        {formatValor(salario, contrato)}
+                        {formatValor(salario, contrato, cripto_moeda)}
                       </td>
                       <td className={`px-5 py-2.5 text-right font-mono text-xs ${isCap ? 'text-amber-400' : 'text-emerald-400'}`}>
-                        +{formatValor(incrementoReal, contrato)}
+                        +{formatValor(incrementoReal, contrato, cripto_moeda)}
                         {isCap && <span className="ml-1 text-amber-500">(limite)</span>}
                       </td>
                     </tr>
@@ -94,9 +95,9 @@ export default function CronogramaDialog({ progressao, onClose }: Props) {
           <div className="border-t border-border px-6 py-3 text-xs text-muted-foreground shrink-0">
             {totalMeses} {totalMeses === 1 ? 'mês' : 'meses'} de progressão
             {' · '}
-            {formatValor(progressao.salario_inicial, contrato)}
+            {formatValor(progressao.salario_inicial, contrato, cripto_moeda)}
             {' → '}
-            {formatValor(progressao.salario_alvo, contrato)}
+            {formatValor(progressao.salario_alvo, contrato, cripto_moeda)}
           </div>
         </div>
       </div>

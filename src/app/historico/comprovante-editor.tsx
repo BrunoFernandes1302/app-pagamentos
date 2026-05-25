@@ -16,7 +16,7 @@ export default function ComprovanteEditor({ id, comprovante, moeda }: Props) {
   const [editValue, setEditValue] = useState(comprovante ?? '')
   const [editing, setEditing] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const isUsdt = moeda === 'USDT'
+  const isUsdt = moeda !== 'BRL'
 
   function handleSave() {
     startTransition(async () => {

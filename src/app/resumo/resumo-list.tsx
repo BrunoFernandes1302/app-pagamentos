@@ -4,7 +4,8 @@ import { useState, useMemo, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2, FileCheck2 } from 'lucide-react'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
-import type { TipoContrato, MoedaSimples, TipoChavePix } from '@/lib/types'
+import type { TipoContrato, MoedaSimples, TipoChavePix, CriptoMoeda } from '@/lib/types'
+import { CONTRATO_LABEL } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { atualizarNotaFiscalSalario } from './actions'
 import RegistrarPagamentoSalarioDialog, { type SalarioPagamentoContext } from './registrar-pagamento-dialog'
@@ -20,6 +21,7 @@ interface Item {
   id: string
   nome: string
   contrato: TipoContrato
+  cripto_moeda: CriptoMoeda
   salario_base: number
   carteira_cripto: string | null
   rede_cripto: string | null
@@ -44,24 +46,24 @@ const CONTRATO_BADGE: Record<TipoContrato, string> = {
   BRL:        'bg-slate-500/10 text-slate-300',
 }
 
-function moedaBase(contrato: TipoContrato): MoedaSimples {
-  return contrato === 'USDT' ? 'USDT' : 'BRL'
+function moedaBase(contrato: TipoContrato, cripto_moeda: CriptoMoeda): MoedaSimples {
+  return contrato === 'USDT' ? cripto_moeda : 'BRL'
 }
 
-function moedaPagamento(contrato: TipoContrato): MoedaSimples {
-  return contrato === 'BRL' ? 'BRL' : 'USDT'
+function moedaPagamento(contrato: TipoContrato, cripto_moeda: CriptoMoeda): MoedaSimples {
+  return contrato === 'BRL' ? 'BRL' : cripto_moeda
 }
 
 function fmtBRL(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
 }
 
-function fmtUSDT(v: number) {
-  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`
+function fmtCripto(v: number, cripto: CriptoMoeda) {
+  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cripto}`
 }
 
 function fmt(v: number, moeda: MoedaSimples) {
-  return moeda === 'BRL' ? fmtBRL(v) : fmtUSDT(v)
+  return moeda === 'BRL' ? fmtBRL(v) : fmtCripto(v, moeda as CriptoMoeda)
 }
 
 function truncar(s: string, n = 14) {
@@ -199,8 +201,8 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
             </thead>
             <tbody>
               {filteredItems.map(item => {
-                const base    = moedaBase(item.contrato)
-                const pagto   = moedaPagamento(item.contrato)
+                const base    = moedaBase(item.contrato, item.cripto_moeda)
+                const pagto   = moedaPagamento(item.contrato, item.cripto_moeda)
                 const converte = base !== pagto
                 const dias    = diasMap[item.id] ?? 30
                 const jaPago  = pagoSet.has(item.id)
@@ -240,7 +242,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">{item.nome}</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${CONTRATO_BADGE[item.contrato]}`}>
-                          {item.contrato}
+                          {CONTRATO_LABEL[item.contrato]}
                         </span>
                       </div>
                     </td>
@@ -289,7 +291,7 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
                       {converte ? (
                         <div>
                           <p className="font-bold tabular-nums text-teal-700">
-                            {pagamentoFinal !== null ? fmtUSDT(pagamentoFinal) : '—'}
+                            {pagamentoFinal !== null ? fmtCripto(pagamentoFinal, pagto as CriptoMoeda) : '—'}
                           </p>
                           <p className="text-xs text-muted-foreground tabular-nums">
                             {fmtBRL(liquido)}

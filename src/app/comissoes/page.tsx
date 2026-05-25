@@ -3,8 +3,12 @@ import { ArrowLeft, Percent } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
 import ComissoesList from './comissoes-list'
+import { aplicarRecorrentes } from './recorrentes'
 
 export default async function ComissoesPage() {
+  // Gera a próxima ocorrência de comissões recorrentes que já venceram
+  try { await aplicarRecorrentes() } catch { /* segue sem bloquear */ }
+
   const supabase = await createClient()
   const orgId = await getOrganizationId()
 
@@ -15,14 +19,14 @@ export default async function ComissoesPage() {
         *,
         comissao_prestadores (
           *,
-          prestadores ( nome, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix )
+          prestadores ( nome, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix )
         )
       `)
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false }),
     supabase
       .from('prestadores')
-      .select('id, nome, ativo, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
+      .select('id, nome, ativo, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix')
       .eq('organization_id', orgId)
       .order('nome'),
   ])

@@ -1,11 +1,11 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays, FileCheck2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays, FileCheck2, Repeat, Layers, XCircle, PlayCircle } from 'lucide-react'
 import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
-import { excluirComissao, atualizarNotaFiscalComissao } from './actions'
+import { excluirComissao, atualizarNotaFiscalComissao, encerrarRecorrencia, gerarInstanciaAgora } from './actions'
 import ComissaoFormDialog from './comissao-form-dialog'
 import RegistrarPagamentoDialog, { type PagamentoContext } from './registrar-pagamento-dialog'
 
@@ -17,6 +17,12 @@ const MESES = [
 function formatMesPeriodo(yyyyMm: string) {
   const [ano, mes] = yyyyMm.split('-').map(Number)
   return `${MESES[mes - 1]} ${ano}`
+}
+
+function fmtDate(iso: string) {
+  const [, m, d] = iso.split('-')
+  const ano = iso.substring(0, 4)
+  return `${d}/${m}/${ano}`
 }
 
 const SEM_PREVISAO = 'sem_previsao'
@@ -34,25 +40,156 @@ function calcularComissao(
 ): number | null {
   const base = receita * percentual / 100
   if (moedaVenda === moedaRecebimento) return base
+  if (moedaVenda !== 'BRL' && moedaRecebimento !== 'BRL') return base
   if (!rate) return null
   return moedaVenda === 'BRL' ? base / rate : base * rate
 }
 
 function formatValor(value: number | null, moeda: MoedaSimples) {
   if (value === null) return <span className="text-amber-400 text-xs">aguardando cotação</span>
-  if (moeda === 'USDT')
-    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} USDT`
+  if (moeda !== 'BRL')
+    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${moeda}`
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 function formatReceita(value: number, moeda: string) {
-  if (moeda === 'USDT')
-    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} USDT`
+  if (moeda !== 'BRL')
+    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${moeda}`
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 }
 
 type StatusFiltro = 'todas' | 'pendentes' | 'pagas'
 type Ordenacao = 'data' | 'alfabetica'
+
+// ─── Template card (recorrente) ────────────────────────────────────────────
+
+function TemplateCard({
+  template,
+  hasPendingInstance,
+  onEdit,
+  rate,
+}: {
+  template: Comissao
+  hasPendingInstance: boolean
+  onEdit: (c: Comissao) => void
+  rate: number | null
+}) {
+  const [encerrandoId, setEncerrandoId] = useState<string | null>(null)
+  const [gerando, setGerando] = useState(false)
+  const [, startTransition] = useTransition()
+
+  function handleEncerrar(id: string) {
+    if (encerrandoId === id) {
+      startTransition(async () => {
+        await encerrarRecorrencia(id)
+        setEncerrandoId(null)
+      })
+    } else {
+      setEncerrandoId(id)
+    }
+  }
+
+  function handleGerarInstancia() {
+    setGerando(true)
+    startTransition(async () => {
+      try {
+        await gerarInstanciaAgora(template.id)
+      } finally {
+        setGerando(false)
+      }
+    })
+  }
+
+  const nomesPrestadores = template.comissao_prestadores
+    .map(cp => cp.prestadores?.nome ?? '(removido)')
+    .join(' · ')
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header do template */}
+      <div className="flex items-start gap-4 px-5 py-3.5 border-b border-border">
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-400">
+              <Repeat className="h-3 w-3" />
+              Recorrente
+            </span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {template.tipo}
+            </span>
+            {template.proxima_recorrencia && (
+              <span className="text-xs text-muted-foreground">
+                Próxima geração: <span className="font-medium text-foreground">{fmtDate(template.proxima_recorrencia)}</span>
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-semibold text-foreground">{nomesPrestadores}</p>
+          <p className="text-xs text-muted-foreground">{template.descricao}</p>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onEdit(template)}
+            title="Editar"
+            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          {encerrandoId === template.id ? (
+            <>
+              <button
+                onClick={() => handleEncerrar(template.id)}
+                className="rounded px-2 py-1 text-xs font-medium text-white bg-destructive hover:bg-destructive/80 transition-colors"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => setEncerrandoId(null)}
+                className="rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => handleEncerrar(template.id)}
+              title="Encerrar recorrência"
+              className="flex items-center gap-1.5 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-red-500/10 hover:text-destructive transition-colors"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Encerrar
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Ação de pagamento */}
+      <div className="px-5 py-3 bg-muted/30 flex items-center justify-between gap-4">
+        {hasPendingInstance ? (
+          <p className="text-xs text-muted-foreground">
+            Há uma ocorrência pendente de pagamento na lista abaixo.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Nenhuma ocorrência pendente. Gere uma para registrar o pagamento.
+          </p>
+        )}
+        {!hasPendingInstance && (
+          <button
+            onClick={handleGerarInstancia}
+            disabled={gerando}
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {gerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+            Gerar pagamento
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main component ────────────────────────────────────────────────────────
 
 export default function ComissoesList({
   comissoes,
@@ -85,6 +222,28 @@ export default function ComissoesList({
   }
   const { rate } = useExchangeRate()
 
+  // Separar templates de comissões normais
+  const templates = useMemo(() =>
+    comissoes.filter(c => c.recorrente === true && c.recorrencia_ativa !== false),
+    [comissoes]
+  )
+
+  const normais = useMemo(() =>
+    comissoes.filter(c => !c.recorrente),
+    [comissoes]
+  )
+
+  // Templates que já têm instância pendente de pagamento
+  const templatesComPendente = useMemo(() => {
+    const set = new Set<string>()
+    for (const c of normais) {
+      if (c.recorrencia_origem_id && c.comissao_prestadores.some(cp => !cp.pago)) {
+        set.add(c.recorrencia_origem_id)
+      }
+    }
+    return set
+  }, [normais])
+
   // Filtros
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('pendentes')
   const [prestadorFiltro, setPrestadorFiltro] = useState('')
@@ -92,16 +251,16 @@ export default function ComissoesList({
 
   const prestadoresFiltro = useMemo(() => {
     const map = new Map<string, string>()
-    comissoes.forEach(c =>
+    normais.forEach(c =>
       c.comissao_prestadores.forEach(cp => {
         if (cp.prestadores) map.set(cp.prestador_id, cp.prestadores.nome)
       })
     )
     return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]))
-  }, [comissoes])
+  }, [normais])
 
   const comissoesFiltradas = useMemo(() => {
-    return comissoes
+    return normais
       .filter(c => {
         if (statusFiltro === 'pagas') return c.comissao_prestadores.every(cp => cp.pago)
         if (statusFiltro === 'pendentes') return c.comissao_prestadores.some(cp => !cp.pago)
@@ -110,7 +269,7 @@ export default function ComissoesList({
       .filter(c =>
         !prestadorFiltro || c.comissao_prestadores.some(cp => cp.prestador_id === prestadorFiltro)
       )
-  }, [comissoes, statusFiltro, prestadorFiltro])
+  }, [normais, statusFiltro, prestadorFiltro])
 
   const grupos = useMemo(() => {
     const map = new Map<string, Comissao[]>()
@@ -119,7 +278,6 @@ export default function ComissoesList({
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(c)
     }
-    // Sort within each group
     for (const [, items] of map) {
       if (ordenacao === 'alfabetica') {
         items.sort((a, b) => {
@@ -139,7 +297,6 @@ export default function ComissoesList({
         })
       }
     }
-    // Sort months chronologically (oldest first), sem_previsao at the end
     return Array.from(map.entries()).sort((a, b) => {
       if (a[0] === SEM_PREVISAO) return 1
       if (b[0] === SEM_PREVISAO) return -1
@@ -183,10 +340,32 @@ export default function ComissoesList({
         </button>
       </div>
 
+      {/* Recorrências ativas */}
+      {templates.length > 0 && (
+        <div className="mb-6 space-y-2">
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Repeat className="h-4 w-4 text-violet-400" />
+              Recorrências ativas
+            </h2>
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">{templates.length} {templates.length === 1 ? 'template' : 'templates'}</span>
+          </div>
+          {templates.map(t => (
+            <TemplateCard
+              key={t.id}
+              template={t}
+              hasPendingInstance={templatesComPendente.has(t.id)}
+              onEdit={openEdit}
+              rate={rate}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Filtros */}
-      {comissoes.length > 0 && (
+      {normais.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-3">
-          {/* Status */}
           <div className="flex rounded-lg border border-border overflow-hidden">
             {(['todas', 'pendentes', 'pagas'] as StatusFiltro[]).map(s => (
               <button
@@ -203,7 +382,6 @@ export default function ComissoesList({
             ))}
           </div>
 
-          {/* Ordenação */}
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button
               onClick={() => setOrdenacao('data')}
@@ -229,7 +407,6 @@ export default function ComissoesList({
             </button>
           </div>
 
-          {/* Prestador */}
           {prestadoresFiltro.length > 1 && (
             <select
               value={prestadorFiltro}
@@ -243,26 +420,25 @@ export default function ComissoesList({
             </select>
           )}
 
-          {/* Contador */}
           {(statusFiltro !== 'todas' || prestadorFiltro) && (
             <span className="text-xs text-muted-foreground">
-              {comissoesFiltradas.length} de {comissoes.length}
+              {comissoesFiltradas.length} de {normais.length}
             </span>
           )}
         </div>
       )}
 
-      {comissoes.length === 0 ? (
+      {normais.length === 0 && templates.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-16 text-center">
           <Percent className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
           <p className="text-sm text-muted-foreground">Nenhuma comissão registrada.</p>
         </div>
-      ) : comissoesFiltradas.length === 0 ? (
+      ) : normais.length > 0 && comissoesFiltradas.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-16 text-center">
           <Percent className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
           <p className="text-sm text-muted-foreground">Nenhuma comissão encontrada com esses filtros.</p>
         </div>
-      ) : (
+      ) : normais.length > 0 ? (
         <div className="space-y-8">
           {grupos.map(([mesKey, itens]) => (
             <div key={mesKey}>
@@ -277,35 +453,46 @@ export default function ComissoesList({
           {itens.map((c) => {
             const isDeleting = deletingId === c.id
             const todosPageos = c.comissao_prestadores.every(cp => cp.pago)
+            const isParcelada = c.parcela_num !== null && c.total_parcelas !== null
+            const isRecorrenteInstance = !!c.recorrencia_origem_id
 
             return (
               <div key={c.id} className="rounded-xl border border-border bg-card overflow-hidden">
 
-                {/* Cabeçalho unificado */}
+                {/* Cabeçalho */}
                 <div className="flex items-start justify-between px-5 py-3 border-b border-border gap-4">
                   <div className="flex-1 min-w-0 space-y-1">
-                    {/* 1. Prestadores — primeiro item */}
                     <p className="font-semibold text-foreground leading-snug">
                       {c.comissao_prestadores.map(cp => cp.prestadores?.nome ?? '(Prestador removido)').join(' · ')}
                     </p>
-                    {/* 2. Meta: tipo + receita + status (sem datas — vencimento vai na linha de pagamento) */}
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
                         {c.tipo}
                       </span>
+                      {isParcelada && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400">
+                          <Layers className="h-3 w-3" />
+                          Parcela {c.parcela_num}/{c.total_parcelas}
+                        </span>
+                      )}
+                      {isRecorrenteInstance && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-xs font-medium text-violet-400">
+                          <Repeat className="h-3 w-3" />
+                          Recorrente
+                        </span>
+                      )}
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                        c.moeda_venda === 'USDT' ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/100/15 text-emerald-300'
+                        c.moeda_venda !== 'BRL' ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'
                       }`}>
                         Receita: {formatReceita(c.receita_ether, c.moeda_venda)}
                       </span>
                       {todosPageos && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/100/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
                           <CheckCircle2 className="h-3 w-3" />
                           Pago
                         </span>
                       )}
                     </div>
-                    {/* 3. Descrição compacta */}
                     <p className="text-xs text-muted-foreground">{c.descricao}</p>
                   </div>
 
@@ -362,7 +549,6 @@ export default function ComissoesList({
 
                     return (
                       <div key={cp.id} className="px-5 py-2.5 flex items-center gap-4 justify-between">
-                        {/* Esquerda: nome (se múltiplos) + comissão + a pagar */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                           {c.comissao_prestadores.length > 1 && (
                             <span className="text-sm font-semibold text-foreground">
@@ -382,11 +568,10 @@ export default function ComissoesList({
                           </span>
                         </div>
 
-                        {/* Direita: vencimento + carteira/pix + botão */}
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           {c.previsao_pagamento && (
                             <span className="text-xs text-muted-foreground">
-                              Venc.: {(() => { const [a,m,d] = c.previsao_pagamento.split('-'); return `${d}/${m}/${a}` })()}
+                              Venc.: {fmtDate(c.previsao_pagamento)}
                             </span>
                           )}
                           {info.val ? (
@@ -418,7 +603,6 @@ export default function ComissoesList({
                               Dados de pagamento em {cp.moeda_recebimento} não cadastrados.
                             </span>
                           )}
-                          {/* NF checkbox / indicador */}
                           {cp.pago ? (
                             nfState[cp.id]
                               ? <span className="inline-flex items-center gap-1 text-xs text-emerald-400"><FileCheck2 className="h-3.5 w-3.5" />NF</span>
@@ -441,7 +625,7 @@ export default function ComissoesList({
                           )}
 
                           {cp.pago ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/100/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
                               <CheckCircle2 className="h-3 w-3" />
                               Pago
                             </span>
@@ -465,7 +649,7 @@ export default function ComissoesList({
                                   ? c.previsao_pagamento.substring(0, 7)
                                   : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
                               })}
-                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/100/100/20 hover:border-emerald-500/50 transition-colors"
+                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
                             >
                               Registrar Pagamento
                             </button>
@@ -482,7 +666,7 @@ export default function ComissoesList({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       <ComissaoFormDialog
         isOpen={dialogOpen}

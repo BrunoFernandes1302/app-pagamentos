@@ -12,12 +12,12 @@ export default async function ProgressaoSalarialPage() {
   const [{ data: progressoes, error }, { data: prestadores }] = await Promise.all([
     supabase
       .from('progressao_salarial')
-      .select('*, prestadores(nome, contrato)')
+      .select('*, prestadores(nome, contrato, cripto_moeda)')
       .eq('status', 'ativo')
       .order('created_at', { ascending: false }),
     supabase
       .from('prestadores')
-      .select('id, nome, contrato, salario_base')
+      .select('id, nome, contrato, cripto_moeda, salario_base')
       .eq('ativo', true)
       .order('nome'),
   ])

@@ -37,7 +37,7 @@ export default async function ResumoPage({
   const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }, { data: nfSalario }] = await Promise.all([
     supabase
       .from('prestadores')
-      .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, chave_pix, tipo_chave_pix')
+      .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix')
       .eq('ativo', true)
       .lt('data_inicio', mesAtual)
       .order('nome'),

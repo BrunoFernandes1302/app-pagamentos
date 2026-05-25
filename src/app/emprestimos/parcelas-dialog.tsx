@@ -17,7 +17,7 @@ const STATUS: Record<StatusParcela, { label: string; cls: string }> = {
 function fmtValor(valor: number, moeda: string) {
   return moeda === 'BRL'
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
-    : `${valor.toFixed(2)} USDT`
+    : `${valor.toFixed(2)} ${moeda}`
 }
 
 interface Props {

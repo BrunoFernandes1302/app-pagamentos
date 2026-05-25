@@ -15,6 +15,7 @@ const schema = z.object({
   funcao: z.string().min(1, 'Função obrigatória'),
   data_inicio: z.string().min(1, 'Data de início obrigatória'),
   contrato: z.enum(['USDT', 'USDT/BRL', 'BRL']),
+  cripto_moeda: z.enum(['USDT', 'USDC']).default('USDT'),
   salario_base: z.coerce.number().positive('Deve ser maior que zero'),
   dia_pagamento: z.coerce.number().int().min(1, 'Mínimo 1').max(31, 'Máximo 31'),
   carteira_cripto: z.string().optional(),
@@ -116,6 +117,7 @@ const DEFAULTS: FormData = {
   funcao: '',
   data_inicio: '',
   contrato: 'BRL',
+  cripto_moeda: 'USDT',
   salario_base: 0,
   dia_pagamento: 5,
   carteira_cripto: '',
@@ -151,6 +153,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
   })
 
   const contrato = form.watch('contrato')
+  const cripto_moeda = form.watch('cripto_moeda')
   const ativo = form.watch('ativo')
   const tipoChavePix = form.watch('tipo_chave_pix') ?? ''
 
@@ -164,6 +167,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
         funcao: prestador.funcao,
         data_inicio: prestador.data_inicio,
         contrato: prestador.contrato,
+        cripto_moeda: prestador.cripto_moeda ?? 'USDT',
         salario_base: prestador.salario_base,
         dia_pagamento: prestador.dia_pagamento,
         carteira_cripto: prestador.carteira_cripto ?? '',
@@ -201,6 +205,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
       funcao: data.funcao,
       data_inicio: data.data_inicio,
       contrato: data.contrato,
+      cripto_moeda: data.contrato !== 'BRL' ? data.cripto_moeda : 'USDT',
       salario_base: data.salario_base,
       dia_pagamento: data.dia_pagamento,
       carteira_cripto: data.contrato !== 'BRL' ? (data.carteira_cripto?.trim() || null) : null,
@@ -341,15 +346,28 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
                   className={inputClass}
                 >
                   <option value="BRL">BRL — Valor em reais, pago em reais</option>
-                  <option value="USDT">USDT — Valor e pagamento em USDT</option>
-                  <option value="USDT/BRL">USDT/BRL — Valor em reais, convertido para USDT no pagamento</option>
+                  <option value="USDT">USD — Valor e pagamento em cripto</option>
+                  <option value="USDT/BRL">USD/BRL — Valor em reais, convertido para cripto no pagamento</option>
                 </select>
               </div>
+
+              {/* Cripto de pagamento — visível quando contrato é cripto */}
+              {contrato !== 'BRL' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">
+                    Cripto de pagamento <span className="text-destructive">*</span>
+                  </label>
+                  <select {...form.register('cripto_moeda')} className={inputClass}>
+                    <option value="USDT">USDT</option>
+                    <option value="USDC">USDC</option>
+                  </select>
+                </div>
+              )}
 
               {/* Salário base */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {contrato === 'USDT' ? 'Salário base (USDT)' : 'Salário base (R$)'}{' '}
+                  {contrato === 'USDT' ? `Salário base (${cripto_moeda})` : 'Salário base (R$)'}{' '}
                   <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -362,7 +380,7 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
                 />
                 {contrato === 'USDT/BRL' && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    O valor em R$ será convertido para USDT na data do pagamento.
+                    O valor em R$ será convertido para {cripto_moeda} na data do pagamento.
                   </p>
                 )}
                 <FieldError message={form.formState.errors.salario_base?.message} />

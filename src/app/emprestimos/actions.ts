@@ -9,7 +9,7 @@ export async function criarEmprestimo(data: {
   prestador_id: string
   valor_total: number
   numero_parcelas: number
-  moeda: 'BRL' | 'USDT'
+  moeda: 'BRL' | 'USDT' | 'USDC'
   mes_inicio: string
   modo_multiplos?: 'sequencial' | 'acumulado'
   emprestimo_ativo_id?: string
