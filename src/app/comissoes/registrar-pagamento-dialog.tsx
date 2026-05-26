@@ -37,6 +37,7 @@ function getMesAtual() {
 
 const schema = z.object({
   valor: z.coerce.number().positive('Valor deve ser maior que zero'),
+  comprovante: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -71,6 +72,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
       valor: context.valorSugerido !== null
         ? parseFloat(context.valorSugerido.toFixed(4))
         : 0,
+      comprovante: '',
     })
     setSelectedMes(context.defaultMes)
     setServerError(null)
@@ -100,7 +102,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
           descricaoComissao: context.comissaoDescricao,
           valor: data.valor,
           moeda: context.moeda,
-          comprovante: null,
+          comprovante: data.comprovante?.trim() || null,
           mesReferencia: `${selectedMes}-01`,
           notaFiscal: context.notaFiscal,
         })
@@ -219,9 +221,20 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  A hash ou comprovante pode ser adicionada depois, diretamente no Histórico.
-                </p>
+              </div>
+
+              {/* Hash / Comprovante */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">
+                  {isUsdt ? 'Hash da transação' : 'Comprovante PIX'}{' '}
+                  <span className="text-muted-foreground font-normal">(opcional)</span>
+                </label>
+                <input
+                  {...form.register('comprovante')}
+                  type="text"
+                  placeholder={isUsdt ? '0x...' : 'ID ou descrição do comprovante'}
+                  className={inputClass + ' font-mono'}
+                />
               </div>
 
               {serverError && (

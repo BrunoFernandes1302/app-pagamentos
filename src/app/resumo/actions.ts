@@ -14,6 +14,7 @@ interface RegistrarPagamentoSalarioInput {
   descricao: string
   parcelaIds: string[]
   notaFiscal: boolean
+  comprovante: string | null
 }
 
 export async function atualizarNotaFiscalSalario(
@@ -47,7 +48,7 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
     descricao: input.descricao,
     valor: input.valor,
     moeda: input.moeda,
-    comprovante: null,
+    comprovante: input.comprovante,
     nota_fiscal: input.notaFiscal,
     mes_referencia: input.mesReferencia,
     organization_id: orgId,

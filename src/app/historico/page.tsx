@@ -10,6 +10,7 @@ import NfEditor from './nf-editor'
 import EmailStatusEditor from './email-status-editor'
 import EmailVbaDialog from './email-vba-dialog'
 import type { HistoricoParaEmail } from './email-vba-dialog'
+import CollapsibleSection from './collapsible-section'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -239,26 +240,16 @@ export default async function HistoricoPage({
 
             {/* Comissões */}
             {comissoes.length > 0 && (
-              <section className="mb-8">
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Comissões ({comissoes.length})
-                </h2>
-                <div className="space-y-3">
-                  {comissoes.map(p => <PagamentoCard key={p.id} p={p} />)}
-                </div>
-              </section>
+              <CollapsibleSection title="Comissões" count={comissoes.length}>
+                {comissoes.map(p => <PagamentoCard key={p.id} p={p} />)}
+              </CollapsibleSection>
             )}
 
             {/* Salários */}
             {salarios.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Salários ({salarios.length})
-                </h2>
-                <div className="space-y-3">
-                  {salarios.map(p => <PagamentoCard key={p.id} p={p} />)}
-                </div>
-              </section>
+              <CollapsibleSection title="Salários" count={salarios.length}>
+                {salarios.map(p => <PagamentoCard key={p.id} p={p} />)}
+              </CollapsibleSection>
             )}
           </>
         )}
