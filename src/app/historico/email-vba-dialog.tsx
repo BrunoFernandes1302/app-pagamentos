@@ -1,8 +1,26 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { Mail, X, Copy, Check, Code2, AlertTriangle, Loader2 } from 'lucide-react'
 import { marcarEmailsEnviados } from './actions'
+
+const STORAGE_KEY = 'email_remetentes_salvos'
+const MAX_SAVED = 5
+
+function loadSavedEmails(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveEmail(email: string) {
+  if (!email.trim()) return
+  const current = loadSavedEmails()
+  const updated = [email, ...current.filter(e => e !== email)].slice(0, MAX_SAVED)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+}
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -111,10 +129,15 @@ interface Props {
 export default function EmailVbaDialog({ pagamentos }: Props) {
   const [open, setOpen] = useState(false)
   const [sender, setSender] = useState('')
+  const [savedEmails, setSavedEmails] = useState<string[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [vba, setVba] = useState('')
   const [copied, setCopied] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  useEffect(() => {
+    setSavedEmails(loadSavedEmails())
+  }, [open])
 
   const semEmail = pagamentos.filter(p => !p.prestador_email)
 
@@ -140,11 +163,19 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
   function handleGerar() {
     const rows = pagamentos.filter(p => selected.has(p.id))
     const ids = rows.map(p => p.id)
+    saveEmail(sender)
+    setSavedEmails(loadSavedEmails())
     setVba(generateVBA(sender, rows))
     startTransition(async () => {
       await marcarEmailsEnviados(ids)
       setSelected(new Set())
     })
+  }
+
+  function handleRemoveSaved(email: string) {
+    const updated = savedEmails.filter(e => e !== email)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    setSavedEmails(updated)
   }
 
   function handleCopy() {
@@ -205,6 +236,33 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">Usado como remetente e BCC. Sua assinatura do Outlook é incluída automaticamente.</p>
+
+                {savedEmails.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {savedEmails.map(email => (
+                      <span
+                        key={email}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setSender(email); setVba('') }}
+                          className="hover:text-foreground transition-colors"
+                        >
+                          {email}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSaved(email)}
+                          className="ml-0.5 rounded-full hover:text-foreground transition-colors"
+                          aria-label="Remover"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Estado vazio */}

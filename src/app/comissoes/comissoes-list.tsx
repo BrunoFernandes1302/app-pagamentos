@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays, FileCheck2, Repeat, Layers, XCircle, PlayCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, Copy, Check, ArrowDownAZ, CalendarDays, FileCheck2, Repeat, Layers, XCircle, PlayCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
@@ -245,6 +245,7 @@ export default function ComissoesList({
   }, [normais])
 
   // Filtros
+  const [recorrenciasVisiveis, setRecorrenciasVisiveis] = useState(false)
   const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>('pendentes')
   const [prestadorFiltro, setPrestadorFiltro] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('data')
@@ -342,24 +343,34 @@ export default function ComissoesList({
 
       {/* Recorrências ativas */}
       {templates.length > 0 && (
-        <div className="mb-6 space-y-2">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="mb-6">
+          <button
+            onClick={() => setRecorrenciasVisiveis(v => !v)}
+            className="w-full flex items-center gap-3 mb-3 group"
+          >
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
               <Repeat className="h-4 w-4 text-violet-400" />
               Recorrências ativas
             </h2>
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-muted-foreground">{templates.length} {templates.length === 1 ? 'template' : 'templates'}</span>
-          </div>
-          {templates.map(t => (
-            <TemplateCard
-              key={t.id}
-              template={t}
-              hasPendingInstance={templatesComPendente.has(t.id)}
-              onEdit={openEdit}
-              rate={rate}
-            />
-          ))}
+            {recorrenciasVisiveis
+              ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+          </button>
+          {recorrenciasVisiveis && (
+            <div className="space-y-2">
+              {templates.map(t => (
+                <TemplateCard
+                  key={t.id}
+                  template={t}
+                  hasPendingInstance={templatesComPendente.has(t.id)}
+                  onEdit={openEdit}
+                  rate={rate}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
