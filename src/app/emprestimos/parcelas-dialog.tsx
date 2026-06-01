@@ -1,10 +1,10 @@
 ﻿'use client'
 
 import { useState, useTransition } from 'react'
-import { X, Loader2, ChevronsRight, Banknote, CheckCircle2, Pencil, Check } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
+import { X, Loader2, ChevronsRight, Banknote, CheckCircle2, Pencil, Check, CalendarDays } from 'lucide-react'
+import { format, parseISO, addMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { pagarParcela, adiantarParcela, pagamentoAvulso, atualizarMesParcela } from './actions'
+import { pagarParcela, adiantarParcela, pagamentoAvulso, atualizarMesParcela, reagendarParcelas } from './actions'
 import type { Emprestimo, ParcelaEmprestimo, StatusParcela } from '@/lib/types'
 
 const STATUS: Record<StatusParcela, { label: string; cls: string }> = {
@@ -87,7 +87,7 @@ function MesEditor({
       {format(parseISO(mesReferencia), 'MMMM/yyyy', { locale: ptBR })}
       <button
         onClick={() => setEditing(true)}
-        className="rounded p-0.5 text-muted-foreground/40 opacity-0 group-hover/mes:opacity-100 hover:text-muted-foreground transition-all"
+        className="rounded p-0.5 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
         title="Alterar mês"
       >
         <Pencil className="h-2.5 w-2.5" />
@@ -100,6 +100,8 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
   const [isPending, startTransition] = useTransition()
   const [avulsoOpen, setAvulsoOpen] = useState(false)
   const [qtdAvulso, setQtdAvulso] = useState(1)
+  const [reagendarOpen, setReagendarOpen] = useState(false)
+  const [reagendarMes, setReagendarMes] = useState('')
   const [localParcelas, setLocalParcelas] = useState<ParcelaEmprestimo[]>(
     () => [...(emprestimo.parcelas_emprestimo ?? [])].sort((a, b) => a.numero_parcela - b.numero_parcela)
   )
@@ -135,6 +137,23 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
     })
   }
 
+  const handleReagendar = () => {
+    if (!reagendarMes) return
+    const novoMesInicio = `${reagendarMes}-01`
+    startTransition(async () => {
+      await reagendarParcelas(emprestimo.id, novoMesInicio)
+      const inicio = parseISO(novoMesInicio)
+      setLocalParcelas(prev => {
+        let idx = 0
+        return prev.map(p => {
+          if (p.status !== 'pendente') return p
+          return { ...p, mes_referencia: format(addMonths(inicio, idx++), 'yyyy-MM-dd') }
+        })
+      })
+      setReagendarOpen(false)
+    })
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-2xl rounded-xl border border-border bg-card shadow-lg flex flex-col max-h-[85vh]">
@@ -167,12 +186,25 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
               Adiantar próxima parcela
             </button>
             <button
-              onClick={() => { setAvulsoOpen(v => !v); setQtdAvulso(1) }}
+              onClick={() => { setAvulsoOpen(v => !v); setQtdAvulso(1); setReagendarOpen(false) }}
               disabled={pendentes.length === 0}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
             >
               <Banknote className="h-3.5 w-3.5" />
               Pagamento avulso
+            </button>
+            <button
+              onClick={() => {
+                const firstPending = pendentes[0]
+                setReagendarMes(firstPending ? firstPending.mes_referencia.substring(0, 7) : '')
+                setReagendarOpen(v => !v)
+                setAvulsoOpen(false)
+              }}
+              disabled={pendentes.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-40"
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Reagendar pendentes
             </button>
           </div>
         )}
@@ -200,6 +232,32 @@ export default function ParcelasDialog({ emprestimo, onClose, onUpdate }: Props)
               {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Confirmar'}
             </button>
             <button onClick={() => setAvulsoOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {/* Formulário de reagendamento */}
+        {reagendarOpen && (
+          <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-muted/40 shrink-0 flex-wrap">
+            <span className="text-sm text-foreground">Novo início das pendentes:</span>
+            <input
+              type="month"
+              value={reagendarMes}
+              onChange={e => setReagendarMes(e.target.value)}
+              className="rounded border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <span className="text-xs text-muted-foreground">
+              {pendentes.length} parcela(s) reagendadas sequencialmente
+            </span>
+            <button
+              onClick={handleReagendar}
+              disabled={isPending || !reagendarMes}
+              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Confirmar'}
+            </button>
+            <button onClick={() => setReagendarOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">
               Cancelar
             </button>
           </div>

@@ -89,6 +89,35 @@ export async function atualizarMesParcela(parcelaId: string, mesReferencia: stri
   revalidatePath('/resumo')
 }
 
+export async function reagendarParcelas(emprestimoId: string, novoMesInicio: string) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  const { data: pendentes, error } = await supabase
+    .from('parcelas_emprestimo')
+    .select('id, numero_parcela')
+    .eq('emprestimo_id', emprestimoId)
+    .eq('status', 'pendente')
+    .eq('organization_id', orgId)
+    .order('numero_parcela', { ascending: true })
+
+  if (error || !pendentes || pendentes.length === 0) throw new Error('Nenhuma parcela pendente.')
+
+  const inicio = parseISO(novoMesInicio)
+
+  for (let i = 0; i < pendentes.length; i++) {
+    const { error: e } = await supabase
+      .from('parcelas_emprestimo')
+      .update({ mes_referencia: format(addMonths(inicio, i), 'yyyy-MM-dd') })
+      .eq('id', pendentes[i].id)
+      .eq('organization_id', orgId)
+    if (e) throw new Error('Erro ao reagendar parcela.')
+  }
+
+  revalidatePath('/emprestimos')
+  revalidatePath('/resumo')
+}
+
 export async function cancelarEmprestimo(id: string) {
   const orgId = await getOrganizationId()
   const supabase = await createClient()
