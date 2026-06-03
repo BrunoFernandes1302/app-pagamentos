@@ -5,7 +5,8 @@ import { addMonths, differenceInMonths, format, parseISO, startOfMonth, subMonth
 import { ptBR } from 'date-fns/locale'
 import { aplicarProgressoes } from '@/app/progressao-salarial/actions'
 import MesSelector from '@/app/historico/mes-selector'
-import ResumoList from './resumo-list'
+import ResumoList, { type ComissaoPendente } from './resumo-list'
+import type { MoedaSimples } from '@/lib/types'
 
 function getMesAtual() {
   return format(startOfMonth(new Date()), 'yyyy-MM')
@@ -34,7 +35,7 @@ export default async function ResumoPage({
   // Faltas do mês anterior: o Resumo de Abril paga Março, então usa faltas de Março
   const mesAnteriorStr = format(subMonths(parseISO(mesAtual), 1), 'yyyy-MM-dd')
 
-  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }, { data: nfSalario }] = await Promise.all([
+  const [{ data: prestadores }, { data: empAtivos }, { data: pagosNoMes }, { data: progressoes }, { data: faltasDoMes }, { data: nfSalario }, { data: comissoesPendentes }] = await Promise.all([
     supabase
       .from('prestadores')
       .select('id, nome, contrato, salario_base, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix')
@@ -63,6 +64,10 @@ export default async function ResumoPage({
       .from('notas_fiscais_salario')
       .select('prestador_id, enviada')
       .eq('mes_referencia', mesAtual),
+    supabase
+      .from('comissao_prestadores')
+      .select('id, comissao_id, prestador_id, percentual, moeda_recebimento, nota_fiscal, comissoes(tipo, descricao, receita_ether, recorrente, moeda_venda, previsao_pagamento)')
+      .eq('pago', false),
   ])
 
   const mesSelDate = parseISO(mesAtual)
@@ -96,6 +101,47 @@ export default async function ResumoPage({
     if (!prestadorId) continue
     if (!parcelasByPrestador.has(prestadorId)) parcelasByPrestador.set(prestadorId, [])
     parcelasByPrestador.get(prestadorId)!.push({ id: p.id, valor: p.valor, moeda: p.moeda })
+  }
+
+  type ComissaoRaw = {
+    tipo: string
+    descricao: string
+    receita_ether: number
+    recorrente: boolean
+    moeda_venda: string
+    previsao_pagamento: string | null
+  }
+
+  type ComissaoCpRaw = {
+    id: string
+    comissao_id: string
+    prestador_id: string
+    percentual: number
+    moeda_recebimento: string
+    nota_fiscal: boolean
+    comissoes: ComissaoRaw | ComissaoRaw[] | null
+  }
+
+  const comissoesByPrestador = new Map<string, ComissaoPendente[]>()
+  for (const cp of (comissoesPendentes ?? []) as unknown as ComissaoCpRaw[]) {
+    const raw = cp.comissoes
+    const c: ComissaoRaw | null = Array.isArray(raw) ? (raw[0] ?? null) : raw
+    if (!c || c.recorrente) continue
+    if (!c.previsao_pagamento || !c.previsao_pagamento.startsWith(mesSelecionado)) continue
+    const list = comissoesByPrestador.get(cp.prestador_id) ?? []
+    list.push({
+      cpId: cp.id,
+      comissaoId: cp.comissao_id,
+      tipo: c.tipo,
+      descricao: c.descricao,
+      receitaEther: c.receita_ether,
+      percentual: cp.percentual,
+      moedaVenda: c.moeda_venda as MoedaSimples,
+      moeda: cp.moeda_recebimento as MoedaSimples,
+      previsaoPagamento: c.previsao_pagamento,
+      notaFiscal: cp.nota_fiscal,
+    })
+    comissoesByPrestador.set(cp.prestador_id, list)
   }
 
   const pagoIds = (pagosNoMes ?? [])
@@ -151,7 +197,7 @@ export default async function ResumoPage({
           <MesSelector mesAtual={mesSelecionado} basePath="/resumo" />
         </div>
 
-        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} mesReferencia={mesAnteriorStr} faltas={faltasDoMes ?? []} nfPendingMap={nfPendingMap} nfPagoMap={nfPagoMap} />
+        <ResumoList key={mesAtual} items={items} pagoIds={pagoIds} mesAtual={mesAtual} mesReferencia={mesAnteriorStr} faltas={faltasDoMes ?? []} nfPendingMap={nfPendingMap} nfPagoMap={nfPagoMap} comissoesByPrestador={comissoesByPrestador} />
       </main>
     </div>
   )

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
 import type { MoedaSimples } from '@/lib/types'
+import { registrarPagamentoComissao } from '@/app/comissoes/actions'
 
 interface RegistrarPagamentoSalarioInput {
   prestadorId: string
@@ -97,4 +98,58 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
   revalidatePath('/resumo')
   revalidatePath('/historico')
   revalidatePath('/emprestimos')
+}
+
+interface ComissaoParaPagarInput {
+  cpId: string
+  comissaoId: string
+  tipo: string
+  descricao: string
+  valor: number
+  moeda: MoedaSimples
+  notaFiscal: boolean
+  comprovante: string | null
+}
+
+interface RegistrarPagamentoCombinado {
+  prestadorId: string
+  prestadorNome: string
+  valorSalario: number
+  moedaSalario: MoedaSimples
+  mesReferencia: string
+  descricaoSalario: string
+  parcelaIds: string[]
+  notaFiscalSalario: boolean
+  comprovante: string | null
+  comissoes: ComissaoParaPagarInput[]
+}
+
+export async function registrarPagamentoCombinado(input: RegistrarPagamentoCombinado) {
+  await registrarPagamentoSalario({
+    prestadorId: input.prestadorId,
+    prestadorNome: input.prestadorNome,
+    valor: input.valorSalario,
+    moeda: input.moedaSalario,
+    mesReferencia: input.mesReferencia,
+    descricao: input.descricaoSalario,
+    parcelaIds: input.parcelaIds,
+    notaFiscal: input.notaFiscalSalario,
+    comprovante: input.comprovante,
+  })
+
+  for (const c of input.comissoes) {
+    await registrarPagamentoComissao({
+      cpId: c.cpId,
+      comissaoId: c.comissaoId,
+      prestadorId: input.prestadorId,
+      prestadorNome: input.prestadorNome,
+      tipo: c.tipo,
+      descricaoComissao: c.descricao,
+      valor: c.valor,
+      moeda: c.moeda,
+      comprovante: c.comprovante,
+      mesReferencia: input.mesReferencia,
+      notaFiscal: c.notaFiscal,
+    })
+  }
 }

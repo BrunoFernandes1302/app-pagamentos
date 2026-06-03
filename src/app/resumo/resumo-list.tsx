@@ -1,15 +1,21 @@
-﻿'use client'
+'use client'
 
-import { useState, useMemo, useTransition } from 'react'
+import { Fragment, useState, useMemo, useTransition } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2, FileCheck2 } from 'lucide-react'
+import { Wallet, QrCode, Receipt, Copy, Check, CheckCircle2, FileCheck2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
 import type { TipoContrato, MoedaSimples, TipoChavePix, CriptoMoeda } from '@/lib/types'
 import { CONTRATO_LABEL } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { atualizarNotaFiscalSalario } from './actions'
-import RegistrarPagamentoSalarioDialog, { type SalarioPagamentoContext } from './registrar-pagamento-dialog'
+import RegistrarPagamentoSalarioDialog, {
+  type SalarioPagamentoContext,
+  type ComissaoPendente,
+  type ComissaoPagamento,
+} from './registrar-pagamento-dialog'
 import FaltasDialog, { type FaltaItem } from './faltas-dialog'
+
+export type { ComissaoPendente }
 
 interface Parcela {
   id: string
@@ -33,11 +39,12 @@ interface Item {
 interface Props {
   items: Item[]
   pagoIds: string[]
-  mesAtual: string     // 'YYYY-MM-DD' — mês do pagamento
-  mesReferencia: string // 'YYYY-MM-DD' — mês anterior (período de trabalho)
+  mesAtual: string
+  mesReferencia: string
   faltas: FaltaItem[]
   nfPendingMap: Record<string, boolean>
   nfPagoMap: Record<string, boolean>
+  comissoesByPrestador: Map<string, ComissaoPendente[]>
 }
 
 const CONTRATO_BADGE: Record<TipoContrato, string> = {
@@ -59,7 +66,7 @@ function fmtBRL(v: number) {
 }
 
 function fmtCripto(v: number, cripto: CriptoMoeda) {
-  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cripto}`
+  return `${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${cripto}`
 }
 
 function fmt(v: number, moeda: MoedaSimples) {
@@ -70,14 +77,23 @@ function truncar(s: string, n = 14) {
   return s.length > n ? s.slice(0, n) + '…' : s
 }
 
-function getMesAtual() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+function calcularValorComissao(
+  receitaEther: number,
+  percentual: number,
+  moedaVenda: MoedaSimples,
+  moedaRecebimento: MoedaSimples,
+  rate: number | null,
+): number | null {
+  const base = receitaEther * percentual / 100
+  if (moedaVenda === moedaRecebimento) return base
+  if (moedaVenda !== 'BRL' && moedaRecebimento !== 'BRL') return base
+  if (!rate) return null
+  return moedaVenda === 'BRL' ? base / rate : base * rate
 }
 
 type Filtro = 'pendentes' | 'pagas'
 
-export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, faltas, nfPendingMap, nfPagoMap }: Props) {
+export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, faltas, nfPendingMap, nfPagoMap, comissoesByPrestador }: Props) {
   const { rate } = useExchangeRate()
   const router = useRouter()
   const pathname = usePathname()
@@ -102,10 +118,13 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
       return [i.id, manualDias[i.id] ?? calculado]
     }))
   , [items, faltasByPrestador, manualDias])
+
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const [filtro, setFiltro] = useState<Filtro>('pendentes')
   const [pagamentoCtx, setPagamentoCtx] = useState<SalarioPagamentoContext | null>(null)
   const [faltaCtx, setFaltaCtx] = useState<{ prestadorId: string; prestadorNome: string } | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [selectedByPrestador, setSelectedByPrestador] = useState<Record<string, string[]>>({})
 
   const pagoSet = new Set(pagoIds)
 
@@ -121,7 +140,46 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
     setTimeout(() => setCopiadoId(null), 2000)
   }
 
-  const defaultMes = mesAtual.substring(0, 7) // 'YYYY-MM'
+  function toggleComissoes(prestadorId: string, comissoes: ComissaoPendente[]) {
+    const willExpand = !expandedIds.has(prestadorId)
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(prestadorId)) next.delete(prestadorId)
+      else next.add(prestadorId)
+      return next
+    })
+    if (willExpand && selectedByPrestador[prestadorId] === undefined) {
+      const cpIds = comissoes
+        .filter(c => calcularValorComissao(c.receitaEther, c.percentual, c.moedaVenda, c.moeda, rate) !== null)
+        .map(c => c.cpId)
+      setSelectedByPrestador(prev => ({ ...prev, [prestadorId]: cpIds }))
+    }
+  }
+
+  function toggleComissaoItem(prestadorId: string, cpId: string) {
+    setSelectedByPrestador(prev => {
+      const current = prev[prestadorId] ?? []
+      const next = current.includes(cpId)
+        ? current.filter(id => id !== cpId)
+        : [...current, cpId]
+      return { ...prev, [prestadorId]: next }
+    })
+  }
+
+  function getComissoesSelecionadas(prestadorId: string, comissoes: ComissaoPendente[]): ComissaoPagamento[] {
+    if (!expandedIds.has(prestadorId)) return []
+    const selected = selectedByPrestador[prestadorId] ?? []
+    const result: ComissaoPagamento[] = []
+    for (const c of comissoes) {
+      if (!selected.includes(c.cpId)) continue
+      const valor = calcularValorComissao(c.receitaEther, c.percentual, c.moedaVenda, c.moeda, rate)
+      if (valor === null) continue
+      result.push({ cpId: c.cpId, comissaoId: c.comissaoId, tipo: c.tipo, descricao: c.descricao, valor, moeda: c.moeda, notaFiscal: c.notaFiscal })
+    }
+    return result
+  }
+
+  const defaultMes = mesAtual.substring(0, 7)
 
   const filteredItems = items.filter(item =>
     filtro === 'pendentes' ? !pagoSet.has(item.id) : pagoSet.has(item.id)
@@ -234,173 +292,267 @@ export default function ResumoList({ items, pagoIds, mesAtual, mesReferencia, fa
 
                 const precisaCotacao = converte || temConversaoEmp
 
+                const comissoesPrestador = comissoesByPrestador.get(item.id) ?? []
+                const isExpanded = expandedIds.has(item.id)
+                const selectedIds = selectedByPrestador[item.id] ?? []
+                const comissoesSelecionadas = getComissoesSelecionadas(item.id, comissoesPrestador)
+
                 return (
-                  <tr key={item.id} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
+                  <Fragment key={item.id}>
+                    <tr className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
 
-                    {/* Nome + contrato */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{item.nome}</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${CONTRATO_BADGE[item.contrato]}`}>
-                          {CONTRATO_LABEL[item.contrato]}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Salário base */}
-                    <td className="px-4 py-3 text-right tabular-nums text-foreground">
-                      {fmt(item.salario_base, base)}
-                    </td>
-
-                    {/* Empréstimo */}
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {deducao > 0
-                        ? <span className="text-red-600">- {fmt(deducao, base)}</span>
-                        : <span className="text-muted-foreground">—</span>
-                      }
-                    </td>
-
-                    {/* Dias trabalhados */}
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="inline-flex items-center gap-1">
-                          <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            value={dias}
-                            onChange={e => setDias(item.id, e.target.value)}
-                            className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
-                          />
-                          <span className="text-xs text-muted-foreground">/30</span>
-                        </div>
-                        <button
-                          onClick={() => setFaltaCtx({ prestadorId: item.id, prestadorNome: item.nome })}
-                          className="text-xs transition-colors"
-                        >
-                          {(faltasByPrestador.get(item.id)?.length ?? 0) > 0
-                            ? <span className="text-amber-400">{faltasByPrestador.get(item.id)!.length} falta{faltasByPrestador.get(item.id)!.length > 1 ? 's' : ''}</span>
-                            : <span className="text-muted-foreground hover:text-foreground">+ falta</span>
-                          }
-                        </button>
-                      </div>
-                    </td>
-
-                    {/* Pagamento final */}
-                    <td className="px-4 py-3 text-right">
-                      {converte ? (
-                        <div>
-                          <p className="font-bold tabular-nums text-teal-700">
-                            {pagamentoFinal !== null ? fmtCripto(pagamentoFinal, pagto as CriptoMoeda) : '—'}
-                          </p>
-                          <p className="text-xs text-muted-foreground tabular-nums">
-                            {fmtBRL(liquido)}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="font-bold tabular-nums text-teal-700">
-                          {pagamentoFinal !== null ? fmt(pagamentoFinal, pagto) : '—'}
-                        </span>
-                      )}
-                      {precisaCotacao && rateIndisponivel && (
-                        <p className="text-xs text-red-500 mt-0.5">sem cotação</p>
-                      )}
-                    </td>
-
-                    {/* Via / dados */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        {item.contrato === 'BRL'
-                          ? <QrCode className="h-3.5 w-3.5 shrink-0" />
-                          : <Wallet className="h-3.5 w-3.5 shrink-0" />
-                        }
-                        {dadosPagamento ? (
-                          <>
-                            <span
-                              className="font-mono text-foreground cursor-default"
-                              title={dadosPagamento}
-                            >
-                              {truncar(dadosPagamento)}
-                            </span>
+                      {/* Nome + contrato + comissões */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-foreground">{item.nome}</span>
+                          <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${CONTRATO_BADGE[item.contrato]}`}>
+                            {CONTRATO_LABEL[item.contrato]}
+                          </span>
+                          {comissoesPrestador.length > 0 && !jaPago && (
                             <button
-                              onClick={() => copiar(item.id, dadosPagamento)}
-                              title="Copiar"
-                              className="rounded p-0.5 hover:bg-muted transition-colors"
+                              onClick={() => toggleComissoes(item.id, comissoesPrestador)}
+                              title={isExpanded ? 'Ocultar comissões' : 'Ver comissões pendentes'}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+                                isExpanded
+                                  ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30'
+                                  : 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                              }`}
                             >
-                              {copiadoId === item.id
-                                ? <Check className="h-3.5 w-3.5 text-emerald-500" />
-                                : <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                              {isExpanded
+                                ? <ChevronDown className="h-3 w-3" />
+                                : <ChevronRight className="h-3 w-3" />
                               }
+                              {comissoesPrestador.length} com.
+                              {isExpanded && comissoesSelecionadas.length > 0 && (
+                                <span className="ml-0.5 rounded-full bg-amber-500/30 px-1 text-amber-200">
+                                  {comissoesSelecionadas.length}✓
+                                </span>
+                              )}
                             </button>
-                          </>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Salário base */}
+                      <td className="px-4 py-3 text-right tabular-nums text-foreground">
+                        {fmt(item.salario_base, base)}
+                      </td>
+
+                      {/* Empréstimo */}
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {deducao > 0
+                          ? <span className="text-red-600">- {fmt(deducao, base)}</span>
+                          : <span className="text-muted-foreground">—</span>
+                        }
+                      </td>
+
+                      {/* Dias trabalhados */}
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="inline-flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={dias}
+                              onChange={e => setDias(item.id, e.target.value)}
+                              className="w-12 rounded border border-border bg-background px-1.5 py-0.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring tabular-nums"
+                            />
+                            <span className="text-xs text-muted-foreground">/30</span>
+                          </div>
+                          <button
+                            onClick={() => setFaltaCtx({ prestadorId: item.id, prestadorNome: item.nome })}
+                            className="text-xs transition-colors"
+                          >
+                            {(faltasByPrestador.get(item.id)?.length ?? 0) > 0
+                              ? <span className="text-amber-400">{faltasByPrestador.get(item.id)!.length} falta{faltasByPrestador.get(item.id)!.length > 1 ? 's' : ''}</span>
+                              : <span className="text-muted-foreground hover:text-foreground">+ falta</span>
+                            }
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Pagamento final */}
+                      <td className="px-4 py-3 text-right">
+                        {converte ? (
+                          <div>
+                            <p className="font-bold tabular-nums text-teal-700">
+                              {pagamentoFinal !== null ? fmtCripto(pagamentoFinal, pagto as CriptoMoeda) : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground tabular-nums">
+                              {fmtBRL(liquido)}
+                            </p>
+                          </div>
                         ) : (
-                          <span className="italic">não cadastrado</span>
-                        )}
-                        {item.contrato !== 'BRL' && item.rede_cripto && (
-                          <span className="bg-muted rounded px-1 py-0.5 text-muted-foreground">
-                            {item.rede_cripto}
+                          <span className="font-bold tabular-nums text-teal-700">
+                            {pagamentoFinal !== null ? fmt(pagamentoFinal, pagto) : '—'}
                           </span>
                         )}
-                        {item.contrato === 'BRL' && item.tipo_chave_pix && (
-                          <span className="bg-muted rounded px-1 py-0.5 text-muted-foreground">
-                            {TIPO_PIX_LABEL[item.tipo_chave_pix as TipoChavePix] ?? item.tipo_chave_pix}
-                          </span>
+                        {precisaCotacao && rateIndisponivel && (
+                          <p className="text-xs text-red-500 mt-0.5">sem cotação</p>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* NF */}
-                    <td className="px-4 py-3 text-center">
-                      {jaPago ? (
-                        nfPagoMap[item.id]
-                          ? <span title="Nota fiscal enviada"><FileCheck2 className="h-4 w-4 mx-auto text-emerald-400" /></span>
-                          : <span className="text-muted-foreground/40 text-sm">—</span>
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={nfState[item.id] ?? false}
-                          title="Nota fiscal enviada"
-                          onChange={(e) => {
-                            const v = e.target.checked
-                            setNfState(prev => ({ ...prev, [item.id]: v }))
-                            startNfTransition(() => atualizarNotaFiscalSalario(item.id, mesAtual, v))
-                          }}
-                          className="h-4 w-4 cursor-pointer accent-teal-500"
-                        />
-                      )}
-                    </td>
+                      {/* Via / dados */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {item.contrato === 'BRL'
+                            ? <QrCode className="h-3.5 w-3.5 shrink-0" />
+                            : <Wallet className="h-3.5 w-3.5 shrink-0" />
+                          }
+                          {dadosPagamento ? (
+                            <>
+                              <span
+                                className="font-mono text-foreground cursor-default"
+                                title={dadosPagamento}
+                              >
+                                {truncar(dadosPagamento)}
+                              </span>
+                              <button
+                                onClick={() => copiar(item.id, dadosPagamento)}
+                                title="Copiar"
+                                className="rounded p-0.5 hover:bg-muted transition-colors"
+                              >
+                                {copiadoId === item.id
+                                  ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                  : <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                }
+                              </button>
+                            </>
+                          ) : (
+                            <span className="italic">não cadastrado</span>
+                          )}
+                          {item.contrato !== 'BRL' && item.rede_cripto && (
+                            <span className="bg-muted rounded px-1 py-0.5 text-muted-foreground">
+                              {item.rede_cripto}
+                            </span>
+                          )}
+                          {item.contrato === 'BRL' && item.tipo_chave_pix && (
+                            <span className="bg-muted rounded px-1 py-0.5 text-muted-foreground">
+                              {TIPO_PIX_LABEL[item.tipo_chave_pix as TipoChavePix] ?? item.tipo_chave_pix}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-                    {/* Ação */}
-                    <td className="px-4 py-3 text-center">
-                      {jaPago ? (
-                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/100/15 text-emerald-300">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Pago
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setPagamentoCtx({
-                            prestadorId: item.id,
-                            prestadorNome: item.nome,
-                            moeda: pagto,
-                            carteiraCripto: item.carteira_cripto,
-                            redeCripto: item.rede_cripto,
-                            chavePix: item.chave_pix,
-                            valorSugerido: pagamentoFinal,
-                            rate: rate ?? null,
-                            dias,
-                            defaultMes,
-                            parcelaIds: item.parcelas.map(p => p.id),
-                            notaFiscal: nfState[item.id] ?? false,
-                          })}
-                          className="rounded-lg bg-teal-500/10 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-500/100/20 transition-colors"
-                        >
-                          Registrar
-                        </button>
-                      )}
-                    </td>
+                      {/* NF */}
+                      <td className="px-4 py-3 text-center">
+                        {jaPago ? (
+                          nfPagoMap[item.id]
+                            ? <span title="Nota fiscal enviada"><FileCheck2 className="h-4 w-4 mx-auto text-emerald-400" /></span>
+                            : <span className="text-muted-foreground/40 text-sm">—</span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={nfState[item.id] ?? false}
+                            title="Nota fiscal enviada"
+                            onChange={(e) => {
+                              const v = e.target.checked
+                              setNfState(prev => ({ ...prev, [item.id]: v }))
+                              startNfTransition(() => atualizarNotaFiscalSalario(item.id, mesAtual, v))
+                            }}
+                            className="h-4 w-4 cursor-pointer accent-teal-500"
+                          />
+                        )}
+                      </td>
 
-                  </tr>
+                      {/* Ação */}
+                      <td className="px-4 py-3 text-center">
+                        {jaPago ? (
+                          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-500/100/15 text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Pago
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setPagamentoCtx({
+                              prestadorId: item.id,
+                              prestadorNome: item.nome,
+                              moeda: pagto,
+                              carteiraCripto: item.carteira_cripto,
+                              redeCripto: item.rede_cripto,
+                              chavePix: item.chave_pix,
+                              valorSugerido: pagamentoFinal,
+                              rate: rate ?? null,
+                              dias,
+                              defaultMes,
+                              parcelaIds: item.parcelas.map(p => p.id),
+                              notaFiscal: nfState[item.id] ?? false,
+                              comissoesSelecionadas,
+                            })}
+                            className="rounded-lg bg-teal-500/10 border border-teal-200 px-3 py-1 text-xs font-medium text-teal-700 hover:bg-teal-500/100/20 transition-colors"
+                          >
+                            Registrar
+                            {comissoesSelecionadas.length > 0 && (
+                              <span className="ml-1.5 rounded-full bg-amber-500/20 text-amber-300 px-1.5 py-0.5">
+                                +{comissoesSelecionadas.length}
+                              </span>
+                            )}
+                          </button>
+                        )}
+                      </td>
+
+                    </tr>
+
+                    {/* Painel de comissões expandido */}
+                    {isExpanded && comissoesPrestador.length > 0 && (
+                      <tr className="border-b border-amber-500/10 bg-amber-500/[0.03]">
+                        <td colSpan={8} className="px-6 pb-3 pt-1">
+                          <p className="text-xs font-medium text-amber-400/70 uppercase tracking-wide mb-2">
+                            Comissões pendentes — incluir no pagamento
+                          </p>
+                          <div className="space-y-1">
+                            {comissoesPrestador.map(c => {
+                              const valor = calcularValorComissao(c.receitaEther, c.percentual, c.moedaVenda, c.moeda, rate)
+                              const isChecked = selectedIds.includes(c.cpId)
+                              const semCotacao = valor === null
+
+                              return (
+                                <label
+                                  key={c.cpId}
+                                  className={`flex items-center justify-between gap-3 py-1.5 px-2 rounded-lg transition-colors ${
+                                    semCotacao
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'cursor-pointer hover:bg-amber-500/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked && !semCotacao}
+                                      disabled={semCotacao}
+                                      onChange={() => !semCotacao && toggleComissaoItem(item.id, c.cpId)}
+                                      className="h-4 w-4 accent-amber-500 cursor-pointer disabled:cursor-not-allowed"
+                                    />
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-sm font-medium text-foreground">{c.tipo}</span>
+                                      {c.descricao && (
+                                        <span className="text-sm text-muted-foreground">— {c.descricao}</span>
+                                      )}
+                                      {c.previsaoPagamento && (
+                                        <span className="text-xs text-muted-foreground/50">
+                                          prev. {c.previsaoPagamento.substring(0, 7)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className={`text-sm font-medium tabular-nums shrink-0 ${
+                                    semCotacao
+                                      ? 'text-amber-400 text-xs'
+                                      : isChecked
+                                        ? 'text-amber-400'
+                                        : 'text-muted-foreground/50'
+                                  }`}>
+                                    {semCotacao ? 'sem cotação' : fmt(valor!, c.moeda)}
+                                  </span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })}
             </tbody>
