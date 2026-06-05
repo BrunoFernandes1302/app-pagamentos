@@ -67,6 +67,18 @@ export async function atualizarPagoEm(id: string, pagoEm: string) {
   revalidatePath('/historico')
 }
 
+export async function atualizarValor(id: string, valor: number) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('historico_pagamentos')
+    .update({ valor })
+    .eq('id', id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao atualizar valor.')
+  revalidatePath('/historico')
+}
+
 export async function excluirPagamento(
   id: string,
   tipo: string,

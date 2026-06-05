@@ -150,6 +150,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [comissaoEdits, setComissaoEdits] = useState<Record<string, ComissaoEdit>>({})
+  const [replicarHash, setReplicarHash] = useState(false)
 
   const form = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,12 +168,26 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
     })
     setSelectedMes(context.defaultMes)
     setServerError(null)
+    setReplicarHash(false)
     const init: Record<string, ComissaoEdit> = {}
     for (const c of context.comissoesSelecionadas) {
       init[c.cpId] = { valor: parseFloat(c.valor.toFixed(4)).toString(), comprovante: '' }
     }
     setComissaoEdits(init)
   }, [context, form])
+
+  const comprovanteValue = form.watch('comprovante')
+
+  useEffect(() => {
+    if (!replicarHash || !context) return
+    setComissaoEdits(prev => {
+      const next = { ...prev }
+      for (const c of context.comissoesSelecionadas) {
+        next[c.cpId] = { ...next[c.cpId], comprovante: comprovanteValue ?? '' }
+      }
+      return next
+    })
+  }, [replicarHash, comprovanteValue, context])
 
   function setComissaoField(cpId: string, field: keyof ComissaoEdit, value: string) {
     setComissaoEdits(prev => ({ ...prev, [cpId]: { ...prev[cpId], [field]: value } }))
@@ -316,7 +331,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
               </div>
 
               {/* Hash do salário */}
-              <div>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-foreground mb-1.5">
                   {isUsdt ? 'Hash da transação' : 'Comprovante PIX'}{' '}
                   <span className="text-muted-foreground font-normal">(opcional)</span>
@@ -327,6 +342,19 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
                   placeholder={isUsdt ? '0x...' : 'ID ou descrição do comprovante'}
                   className={inputClass + ' font-mono'}
                 />
+                {temComissoes && (
+                  <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+                    <input
+                      type="checkbox"
+                      checked={replicarHash}
+                      onChange={e => setReplicarHash(e.target.checked)}
+                      className="h-3.5 w-3.5 accent-teal-500 cursor-pointer"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Replicar {isUsdt ? 'hash' : 'comprovante'} para comissões
+                    </span>
+                  </label>
+                )}
               </div>
 
               {/* Comissões editáveis */}

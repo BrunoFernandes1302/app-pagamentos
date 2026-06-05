@@ -6,6 +6,7 @@ import MesSelector from './mes-selector'
 import ComprovanteEditor from './comprovante-editor'
 import PagoEmEditor from './pago-em-editor'
 import DeletePagamento from './delete-pagamento'
+import ValorEditor from './valor-editor'
 import NfEditor from './nf-editor'
 import EmailStatusEditor from './email-status-editor'
 import EmailVbaDialog from './email-vba-dialog'
@@ -26,12 +27,6 @@ function validarMes(mes: string | undefined): string {
   if (!mes) return getMesAtual()
   if (/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return mes
   return getMesAtual()
-}
-
-function formatValor(valor: number, moeda: MoedaSimples) {
-  if (moeda !== 'BRL')
-    return `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${moeda}`
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
 }
 
 function ResumoCard({ label, valor, moeda, count }: {
@@ -71,9 +66,7 @@ function PagamentoCard({ p }: { p: HistoricoPagamento }) {
           <PagoEmEditor id={p.id} pagoEm={p.pago_em} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="font-bold tabular-nums text-foreground">
-            {formatValor(p.valor, p.moeda)}
-          </span>
+          <ValorEditor id={p.id} valor={p.valor} moeda={p.moeda} />
           <DeletePagamento id={p.id} tipo={p.tipo} comissaoPrestadorId={p.comissao_prestador_id} />
         </div>
       </div>
