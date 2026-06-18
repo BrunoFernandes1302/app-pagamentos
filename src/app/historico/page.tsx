@@ -1,4 +1,6 @@
-﻿import Link from 'next/link'
+﻿export const dynamic = 'force-dynamic'
+
+import Link from 'next/link'
 import { ArrowLeft, CalendarDays } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { HistoricoPagamento, MoedaSimples } from '@/lib/types'
@@ -12,6 +14,7 @@ import EmailStatusEditor from './email-status-editor'
 import EmailVbaDialog from './email-vba-dialog'
 import type { HistoricoParaEmail } from './email-vba-dialog'
 import CollapsibleSection from './collapsible-section'
+import RefreshButton from './refresh-button'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -168,6 +171,7 @@ export default async function HistoricoPage({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <RefreshButton />
             <EmailVbaDialog pagamentos={pagamentosEmail} />
             <MesSelector mesAtual={mesAtual} />
           </div>
