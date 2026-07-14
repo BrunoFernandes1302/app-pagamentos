@@ -19,7 +19,7 @@ export default async function ComissoesPage() {
         *,
         comissao_prestadores (
           *,
-          prestadores ( nome, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix )
+          prestadores ( nome, contrato, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix )
         )
       `)
       .eq('organization_id', orgId)

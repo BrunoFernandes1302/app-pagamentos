@@ -546,15 +546,21 @@ export default function ComissoesList({
                 {/* Prestadores — detalhes de pagamento */}
                 <div className="divide-y divide-border">
                   {c.comissao_prestadores.map((cp) => {
+                    const contratoAtual = cp.prestadores?.contrato
+                    const moedaEfetiva: MoedaSimples =
+                      contratoAtual === 'BRL' ? 'BRL'
+                      : contratoAtual === 'USDT/BRL' ? cp.moeda_recebimento
+                      : (cp.prestadores?.cripto_moeda ?? cp.moeda_recebimento)
+
                     const valorAtual = calcularComissao(
                       c.receita_ether,
                       cp.percentual,
                       c.moeda_venda,
-                      cp.moeda_recebimento,
+                      moedaEfetiva,
                       rate,
                     )
                     const info =
-                      cp.moeda_recebimento === 'BRL'
+                      moedaEfetiva === 'BRL'
                         ? { val: cp.prestadores?.chave_pix ?? null, rede: null, pixTipo: cp.prestadores?.tipo_chave_pix ?? null }
                         : { val: cp.prestadores?.carteira_cripto ?? null, rede: cp.prestadores?.rede_cripto ?? null, pixTipo: null }
 
@@ -573,8 +579,8 @@ export default function ComissoesList({
                             A pagar:{' '}
                             <span className="font-semibold text-foreground">
                               {cp.pago
-                                ? formatValor(cp.valor_comissao, cp.moeda_recebimento)
-                                : formatValor(valorAtual, cp.moeda_recebimento)}
+                                ? formatValor(cp.valor_comissao, moedaEfetiva)
+                                : formatValor(valorAtual, moedaEfetiva)}
                             </span>
                           </span>
                         </div>
@@ -587,7 +593,7 @@ export default function ComissoesList({
                           )}
                           {info.val ? (
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              {cp.moeda_recebimento === 'BRL'
+                              {moedaEfetiva === 'BRL'
                                 ? <QrCode className="h-3.5 w-3.5 shrink-0" />
                                 : <Wallet className="h-3.5 w-3.5 shrink-0" />}
                               <span className="font-mono">{info.val}</span>
@@ -611,7 +617,7 @@ export default function ComissoesList({
                             </div>
                           ) : (
                             <span className="text-xs text-amber-400">
-                              Dados de pagamento em {cp.moeda_recebimento} não cadastrados.
+                              Dados de pagamento em {moedaEfetiva} não cadastrados.
                             </span>
                           )}
                           {cp.pago ? (
@@ -649,7 +655,7 @@ export default function ComissoesList({
                                 comissaoDescricao: c.descricao,
                                 prestadorId: cp.prestador_id,
                                 prestadorNome: cp.prestadores?.nome ?? '(Prestador removido)',
-                                moeda: cp.moeda_recebimento,
+                                moeda: moedaEfetiva,
                                 carteiraCripto: cp.prestadores?.carteira_cripto ?? null,
                                 redeCripto: cp.prestadores?.rede_cripto ?? null,
                                 chavePix: cp.prestadores?.chave_pix ?? null,
