@@ -7,7 +7,7 @@ export const CONTRATO_LABEL: Record<TipoContrato, string> = {
   BRL: 'BRL',
 }
 
-export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
+export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria' | 'dex'
 
 export const TIPO_PIX_LABEL: Record<TipoChavePix, string> = {
   cpf: 'CPF',
@@ -15,6 +15,7 @@ export const TIPO_PIX_LABEL: Record<TipoChavePix, string> = {
   email: 'E-mail',
   telefone: 'Telefone',
   aleatoria: 'Aleatória',
+  dex: 'DEX',
 }
 
 export type UserRole = 'super_admin' | 'admin' | 'member'
@@ -80,8 +81,10 @@ export interface ComissaoPrestador {
   created_at: string
   prestadores: {
     nome: string
+    contrato: TipoContrato
     carteira_cripto: string | null
     rede_cripto: string | null
+    cripto_moeda: CriptoMoeda
     chave_pix: string | null
     tipo_chave_pix: TipoChavePix | null
   }

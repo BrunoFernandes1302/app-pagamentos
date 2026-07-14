@@ -99,6 +99,7 @@ function aplicarMascaraPix(tipo: string, valor: string): string {
   if (tipo === 'email') return valor.toLowerCase().replace(/\s/g, '')
   if (tipo === 'telefone') return mascaraTelefone(valor)
   if (tipo === 'aleatoria') return mascaraAleatoria(valor)
+  if (tipo === 'dex') return mascaraTelefone(valor)
   return valor
 }
 
@@ -108,6 +109,7 @@ const PIX_PLACEHOLDER: Record<string, string> = {
   email: 'joao@exemplo.com',
   telefone: '(11) 99999-9999',
   aleatoria: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+  dex: '(11) 99999-9999',
 }
 
 const DEFAULTS: FormData = {
@@ -182,17 +184,13 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
     setServerError(null)
   }, [isOpen, prestador, form])
 
-  // Clear irrelevant payment fields when contract type changes
+  // Only clear validation errors when switching contract type — preserve field values
+  // so they reappear if the user switches back
   useEffect(() => {
     if (contrato === 'BRL') {
-      form.setValue('carteira_cripto', '')
-      form.setValue('rede_cripto', '')
       form.clearErrors(['carteira_cripto', 'rede_cripto'])
     } else {
-      form.setValue('chave_pix', '')
-      form.setValue('tipo_chave_pix', '')
-      form.clearErrors('chave_pix')
-      form.clearErrors('tipo_chave_pix')
+      form.clearErrors(['chave_pix', 'tipo_chave_pix'])
     }
   }, [contrato, form])
 
@@ -208,10 +206,10 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
       cripto_moeda: data.contrato !== 'BRL' ? data.cripto_moeda : 'USDT',
       salario_base: data.salario_base,
       dia_pagamento: data.dia_pagamento,
-      carteira_cripto: data.contrato !== 'BRL' ? (data.carteira_cripto?.trim() || null) : null,
-      rede_cripto: data.contrato !== 'BRL' ? (data.rede_cripto?.trim() || null) : null,
-      chave_pix: data.contrato === 'BRL' ? (data.chave_pix?.trim() || null) : null,
-      tipo_chave_pix: data.contrato === 'BRL' ? ((data.tipo_chave_pix?.trim() || null) as TipoChavePix | null) : null,
+      carteira_cripto: data.carteira_cripto?.trim() || null,
+      rede_cripto: data.rede_cripto?.trim() || null,
+      chave_pix: data.chave_pix?.trim() || null,
+      tipo_chave_pix: (data.tipo_chave_pix?.trim() || null) as TipoChavePix | null,
       ativo: data.ativo,
     }
 
@@ -436,12 +434,13 @@ export default function PrestadorFormDialog({ isOpen, onClose, prestador }: Prop
                       <option value="email">E-mail</option>
                       <option value="telefone">Telefone</option>
                       <option value="aleatoria">Aleatória</option>
+                      <option value="dex">DEX</option>
                     </select>
                     <FieldError message={form.formState.errors.tipo_chave_pix?.message} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1.5">
-                      Chave PIX <span className="text-destructive">*</span>
+                      {tipoChavePix === 'dex' ? 'Chave DEX' : 'Chave PIX'} <span className="text-destructive">*</span>
                     </label>
                     <input
                       {...form.register('chave_pix')}
