@@ -2,8 +2,9 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail, X, Copy, Check, Code2, AlertTriangle, Loader2, ChevronLeft, ExternalLink } from 'lucide-react'
+import { Mail, X, Copy, Check, Code2, AlertTriangle, Loader2, ChevronLeft, ExternalLink, Download, Paperclip } from 'lucide-react'
 import { marcarEmailsEnviados } from './actions'
+import type { MoedaSimples } from '@/lib/types'
 
 type Step = 'method' | 'vba' | 'mailto'
 
@@ -37,7 +38,9 @@ export interface HistoricoParaEmail {
   prestador_email: string | null
   descricao: string
   valor: number
-  comprovante: string
+  moeda: MoedaSimples
+  comprovante: string | null
+  comprovante_arquivo: string | null
   mes_referencia: string
 }
 
@@ -59,6 +62,26 @@ function toVBAString(text: string) {
   return text.split('\n').map(l => `"${esc(l)}"`).join(` & vbCrLf & _\n${pad}`)
 }
 
+function temPdf(r: HistoricoParaEmail): boolean {
+  return !!r.comprovante_arquivo
+}
+
+// Nome com que o PDF é baixado — precisa bater com o ?nomefixo=1 da API
+function nomeArquivoPdf(r: HistoricoParaEmail): string {
+  return `comprovante-${r.id}.pdf`
+}
+
+function anexoLinha(r: HistoricoParaEmail, comAnexo = true): string {
+  if (r.moeda !== 'BRL' && r.comprovante) {
+    return `HASH: ${r.comprovante}`
+  }
+  // No mailto o arquivo não vai anexado, então não prometemos anexo no corpo
+  if (temPdf(r) && comAnexo) {
+    return 'Comprovante em anexo.'
+  }
+  return ''
+}
+
 function generateVBA(sender: string, rows: HistoricoParaEmail[]): string {
   const last = rows.length - 1
   let assignments = ''
@@ -66,43 +89,72 @@ function generateVBA(sender: string, rows: HistoricoParaEmail[]): string {
   rows.forEach((r, i) => {
     const descricao = formatDescricao(r)
     const valorFmt = r.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+    const anexo = anexoLinha(r)
     const body = [
       `Olá, ${r.prestador_nome}!`,
       '',
       `Segue o comprovante referente ao pagamento abaixo:`,
       '',
       descricao,
-      `Valor: ${valorFmt} USDT`,
-      `HASH: ${r.comprovante}`,
+      `Valor: ${valorFmt} ${r.moeda}`,
+      ...(anexo ? [anexo] : []),
       '',
       'Atenciosamente,',
     ].join('\n')
 
     assignments += `    arrEmail(${i}) = "${esc(r.prestador_email ?? '')}"\n`
     assignments += `    arrBody(${i})  = ${toVBAString(body)}\n`
+    assignments += `    arrAnexo(${i}) = "${temPdf(r) ? esc(nomeArquivoPdf(r)) : ''}"\n`
   })
 
   const sentOnBehalf = sender ? `            .SentOnBehalfOfName = "${esc(sender)}"\n` : ''
   const bcc = sender ? `            .BCC = "${esc(sender)}"\n` : ''
+  const totalAnexos = rows.filter(temPdf).length
 
   return `Sub EnviarComprovantes()
     Dim objOutlook  As Object
     Dim objMail     As Object
     Dim sBody       As String
     Dim sAssinatura As String
+    Dim sPasta      As String
+    Dim sCaminho    As String
     Dim i           As Integer
     Dim tentativas  As Integer
+    Dim faltando    As String
     Dim arrEmail(${last}) As String
     Dim arrBody(${last})  As String
+    Dim arrAnexo(${last}) As String
+
+    ' Pasta onde estão os ${totalAnexos} PDF(s) baixados pelo sistema.
+    ' Por padrão a pasta de Downloads do usuário — ajuste se você salvou em outro lugar.
+    sPasta = Environ("USERPROFILE") & "\\Downloads\\"
 
 ${assignments}
+    ' Confere se todos os anexos existem ANTES de enviar qualquer email
+    For i = 0 To ${last}
+        If arrAnexo(i) <> "" Then
+            If Dir(sPasta & arrAnexo(i)) = "" Then
+                faltando = faltando & vbCrLf & arrAnexo(i)
+            End If
+        End If
+    Next i
+    If faltando <> "" Then
+        MsgBox "Os PDFs abaixo nao foram encontrados em " & sPasta & ":" & faltando & _
+               vbCrLf & vbCrLf & "Baixe os comprovantes pelo sistema e rode de novo.", vbCritical
+        Exit Sub
+    End If
+
     Set objOutlook = CreateObject("Outlook.Application")
     For i = 0 To ${last}
         Set objMail = objOutlook.CreateItem(0)
         With objMail
             .To = arrEmail(i)
             .Subject = "Comprovante de Pagamento"
-${sentOnBehalf}${bcc}            .Display
+${sentOnBehalf}${bcc}            If arrAnexo(i) <> "" Then
+                sCaminho = sPasta & arrAnexo(i)
+                .Attachments.Add sCaminho
+            End If
+            .Display
             ' Aguarda assinatura carregar (loop de até 10s)
             tentativas = 0
             Do While Len(.HTMLBody) < 50 And tentativas < 20
@@ -128,14 +180,15 @@ End Sub`
 function generateMailtoLink(p: HistoricoParaEmail): string {
   const descricao = formatDescricao(p)
   const valorFmt = p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+  const anexo = anexoLinha(p, false)
   const body = [
     `Olá, ${p.prestador_nome}!`,
     '',
     'Segue o comprovante referente ao pagamento abaixo:',
     '',
     descricao,
-    `Valor: ${valorFmt} USDT`,
-    `HASH: ${p.comprovante}`,
+    `Valor: ${valorFmt} ${p.moeda}`,
+    ...(anexo ? [anexo] : []),
     '',
     'Atenciosamente,',
   ].join('\n')
@@ -164,6 +217,8 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
   const [copied, setCopied] = useState(false)
   const [mailtoGerados, setMailtoGerados] = useState<MailtoItem[]>([])
   const [isPending, startTransition] = useTransition()
+  const [baixandoPdfs, setBaixandoPdfs] = useState(false)
+  const [pdfsBaixados, setPdfsBaixados] = useState(false)
 
   useEffect(() => {
     setSavedEmails(loadSavedEmails())
@@ -180,6 +235,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
     })
     setVba('')
     setMailtoGerados([])
+    setPdfsBaixados(false)
   }
 
   function toggleAll() {
@@ -190,6 +246,31 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
     }
     setVba('')
     setMailtoGerados([])
+    setPdfsBaixados(false)
+  }
+
+  // Baixa os PDFs com nome fixo (comprovante-{id}.pdf) para o VBA anexá-los do disco
+  async function handleBaixarPdfs() {
+    const rows = pagamentos.filter(p => selected.has(p.id) && temPdf(p))
+    setBaixandoPdfs(true)
+    try {
+      for (const p of rows) {
+        const res = await fetch(`/api/comprovantes/${p.id}?json=1&download=1&nomefixo=1`)
+        if (!res.ok) continue
+        const { url } = await res.json()
+        const a = document.createElement('a')
+        a.href = url
+        a.download = nomeArquivoPdf(p)
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        // Espaça os downloads para o browser não bloquear em lote
+        await new Promise(r => setTimeout(r, 400))
+      }
+      setPdfsBaixados(true)
+    } finally {
+      setBaixandoPdfs(false)
+    }
   }
 
   function handleGerar() {
@@ -305,7 +386,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
 
                 {pagamentos.length === 0 ? (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento USDT com hash cadastrado neste mês.
+                    Nenhum pagamento com comprovante cadastrado neste mês.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
@@ -388,7 +469,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                 {/* Estado vazio */}
                 {pagamentos.length === 0 && (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento USDT com hash cadastrado neste mês.
+                    Nenhum pagamento com comprovante cadastrado neste mês.
                   </div>
                 )}
 
@@ -449,7 +530,16 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                               }`}>
                                 {p.tipo === 'comissao' ? 'Comissão' : 'Salário'}
                               </span>
-                              <span className="text-sm font-semibold tabular-nums text-foreground">{valorFmt} USDT</span>
+                              <span className="text-sm font-semibold tabular-nums text-foreground">{valorFmt} {p.moeda}</span>
+                              {temPdf(p) && (
+                                <span
+                                  title="Comprovante PDF será anexado"
+                                  className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400"
+                                >
+                                  <Paperclip className="h-3 w-3" />
+                                  PDF
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 truncate">{descricao}</p>
                             {temEmail && (
@@ -461,6 +551,37 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                     })}
                   </div>
                 </div>
+
+                {/* Passo 1: baixar os PDFs que o VBA vai anexar */}
+                {(() => {
+                  const comPdf = pagamentos.filter(p => selected.has(p.id) && temPdf(p))
+                  if (comPdf.length === 0) return null
+                  return (
+                    <div className="rounded-lg border border-border bg-muted/40 px-4 py-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{comPdf.length}</span> comprovante{comPdf.length !== 1 ? 's' : ''} em PDF
+                        {' '}ser{comPdf.length !== 1 ? 'ão' : 'á'} anexado{comPdf.length !== 1 ? 's' : ''} pelo script.
+                        Baixe {comPdf.length !== 1 ? 'os arquivos' : 'o arquivo'} antes de executar o VBA.
+                      </p>
+                      <button
+                        onClick={handleBaixarPdfs}
+                        disabled={baixandoPdfs}
+                        className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                          pdfsBaixados
+                            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+                            : 'border-border bg-card text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        {baixandoPdfs
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : pdfsBaixados ? <Check className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                        {baixandoPdfs
+                          ? 'Baixando PDFs...'
+                          : pdfsBaixados ? 'PDFs baixados' : `Baixar ${comPdf.length} PDF${comPdf.length !== 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+                  )
+                })()}
 
                 {/* Botão gerar */}
                 <button
@@ -495,11 +616,15 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                     <div className="mt-3 rounded-lg border-l-4 border-blue-400 bg-blue-500/10 px-4 py-3 text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
                       <p className="font-semibold mb-1">Como usar:</p>
                       <ol className="list-decimal list-inside space-y-0.5">
+                        <li>Baixe os PDFs no botão acima (ficam em <strong>Downloads</strong>)</li>
                         <li>Excel → <strong>Alt + F11</strong></li>
                         <li><strong>Inserir → Módulo</strong></li>
                         <li>Apague o código antigo e cole o novo</li>
                         <li><strong>F5</strong> para executar</li>
                       </ol>
+                      <p className="mt-2">
+                        Se você salvou os PDFs em outra pasta, ajuste a linha <strong>sPasta</strong> no início do script.
+                      </p>
                     </div>
                   </div>
                 )}
@@ -513,7 +638,19 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                 {/* Estado vazio */}
                 {pagamentos.length === 0 && (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento USDT com hash cadastrado neste mês.
+                    Nenhum pagamento com comprovante cadastrado neste mês.
+                  </div>
+                )}
+
+                {/* Mailto não anexa arquivos — limitação do protocolo */}
+                {pagamentos.some(p => selected.has(p.id) && temPdf(p)) && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      O Mailto não permite anexar arquivos (limitação do navegador). Os PDFs
+                      {' '}<strong>não irão anexados</strong> — anexe manualmente no cliente de email, ou
+                      use o método <strong>VBA</strong>, que anexa automaticamente.
+                    </span>
                   </div>
                 )}
 
@@ -574,7 +711,16 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                               }`}>
                                 {p.tipo === 'comissao' ? 'Comissão' : 'Salário'}
                               </span>
-                              <span className="text-sm font-semibold tabular-nums text-foreground">{valorFmt} USDT</span>
+                              <span className="text-sm font-semibold tabular-nums text-foreground">{valorFmt} {p.moeda}</span>
+                              {temPdf(p) && (
+                                <span
+                                  title="Comprovante PDF será anexado"
+                                  className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-400"
+                                >
+                                  <Paperclip className="h-3 w-3" />
+                                  PDF
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground mt-0.5 truncate">{descricao}</p>
                             {temEmail && (

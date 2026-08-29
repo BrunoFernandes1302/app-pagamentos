@@ -1,8 +1,22 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
+
+const BUCKET = 'comprovantes'
+const MAX_PDF_BYTES = 5 * 1024 * 1024
+
+function sanitizarNomeArquivo(nome: string): string {
+  const base = nome.replace(/\.pdf$/i, '')
+  const limpo = base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80)
+  return `${limpo || 'comprovante'}.pdf`
+}
+
+function objectPath(orgId: string, historicoId: string, nome: string) {
+  return `${orgId}/${historicoId}/${randomUUID()}-${sanitizarNomeArquivo(nome)}`
+}
 
 export async function atualizarNotaFiscalHistorico(id: string, notaFiscal: boolean) {
   const orgId = await getOrganizationId()
@@ -49,6 +63,85 @@ export async function atualizarComprovante(id: string, comprovante: string) {
     .eq('id', id)
     .eq('organization_id', orgId)
   if (error) throw new Error('Erro ao atualizar comprovante.')
+  revalidatePath('/historico')
+}
+
+export async function atualizarComprovanteArquivo(id: string, formData: FormData) {
+  const file = formData.get('arquivo')
+  if (!(file instanceof File)) throw new Error('Nenhum arquivo enviado.')
+  if (file.type !== 'application/pdf') throw new Error('Apenas arquivos PDF são aceitos.')
+  if (file.size > MAX_PDF_BYTES) throw new Error('O PDF deve ter no máximo 5 MB.')
+
+  const bytes = await file.arrayBuffer()
+
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  // Busca a linha e o arquivo atual (se houver) para substituir
+  const { data: atual, error: errGet } = await supabase
+    .from('historico_pagamentos')
+    .select('id, comprovante_arquivo, organization_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single()
+  if (errGet || !atual) throw new Error('Pagamento não encontrado.')
+
+  const path = objectPath(orgId, atual.id, file.name)
+
+  const { error: errUpload } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, bytes, { contentType: 'application/pdf', upsert: false })
+  if (errUpload) throw new Error('Erro ao enviar o arquivo.')
+
+  const { error: errUpdate } = await supabase
+    .from('historico_pagamentos')
+    .update({
+      comprovante_arquivo: path,
+      comprovante_arquivo_nome: file.name,
+      comprovante_arquivo_tamanho: file.size,
+    })
+    .eq('id', atual.id)
+    .eq('organization_id', orgId)
+  if (errUpdate) {
+    await supabase.storage.from(BUCKET).remove([path])
+    throw new Error('Erro ao salvar o comprovante.')
+  }
+
+  // Remove o arquivo anterior após o novo estar salvo
+  if (atual.comprovante_arquivo && atual.comprovante_arquivo !== path) {
+    await supabase.storage.from(BUCKET).remove([atual.comprovante_arquivo])
+  }
+
+  revalidatePath('/historico')
+}
+
+export async function removerComprovanteArquivo(id: string) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  const { data: atual, error: errGet } = await supabase
+    .from('historico_pagamentos')
+    .select('id, comprovante_arquivo, organization_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single()
+  if (errGet || !atual) throw new Error('Pagamento não encontrado.')
+
+  if (atual.comprovante_arquivo) {
+    await supabase.storage.from(BUCKET).remove([atual.comprovante_arquivo])
+  }
+
+  const { error } = await supabase
+    .from('historico_pagamentos')
+    .update({
+      comprovante_arquivo: null,
+      comprovante_arquivo_nome: null,
+      comprovante_arquivo_tamanho: null,
+    })
+    .eq('id', atual.id)
+    .eq('organization_id', orgId)
+  if (error) throw new Error('Erro ao remover o comprovante.')
+
   revalidatePath('/historico')
 }
 
