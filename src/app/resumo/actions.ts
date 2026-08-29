@@ -40,23 +40,28 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
   const orgId = await getOrganizationId()
   const supabase = await createClient()
 
-  const { error } = await supabase.from('historico_pagamentos').insert({
-    tipo: 'salario',
-    referencia_id: null,
-    comissao_prestador_id: null,
-    prestador_id: input.prestadorId,
-    prestador_nome: input.prestadorNome,
-    descricao: input.descricao,
-    valor: input.valor,
-    moeda: input.moeda,
-    comprovante: input.comprovante,
-    nota_fiscal: input.notaFiscal,
-    mes_referencia: input.mesReferencia,
-    organization_id: orgId,
-    parcelas_emprestimo_ids: input.parcelaIds.length > 0 ? input.parcelaIds : null,
-  })
+  const { data, error } = await supabase
+    .from('historico_pagamentos')
+    .insert({
+      tipo: 'salario',
+      referencia_id: null,
+      comissao_prestador_id: null,
+      prestador_id: input.prestadorId,
+      prestador_nome: input.prestadorNome,
+      descricao: input.descricao,
+      valor: input.valor,
+      moeda: input.moeda,
+      comprovante: input.comprovante,
+      nota_fiscal: input.notaFiscal,
+      mes_referencia: input.mesReferencia,
+      organization_id: orgId,
+      parcelas_emprestimo_ids: input.parcelaIds.length > 0 ? input.parcelaIds : null,
+    })
+    .select('id')
+    .single()
 
   if (error) throw new Error('Erro ao registrar pagamento.')
+  const historicoId = data.id
 
   if (input.parcelaIds.length > 0) {
     const { data: parcelasInfo } = await supabase
@@ -98,6 +103,8 @@ export async function registrarPagamentoSalario(input: RegistrarPagamentoSalario
   revalidatePath('/resumo')
   revalidatePath('/historico')
   revalidatePath('/emprestimos')
+
+  return { historicoId }
 }
 
 interface ComissaoParaPagarInput {
@@ -125,7 +132,7 @@ interface RegistrarPagamentoCombinado {
 }
 
 export async function registrarPagamentoCombinado(input: RegistrarPagamentoCombinado) {
-  await registrarPagamentoSalario({
+  const salario = await registrarPagamentoSalario({
     prestadorId: input.prestadorId,
     prestadorNome: input.prestadorNome,
     valor: input.valorSalario,
@@ -152,4 +159,6 @@ export async function registrarPagamentoCombinado(input: RegistrarPagamentoCombi
       notaFiscal: c.notaFiscal,
     })
   }
+
+  return salario
 }

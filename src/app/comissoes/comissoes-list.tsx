@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Loader2, Percent, Wallet, QrCode, CheckCircle2, C
 import type { Comissao, PrestadorResumido, MoedaSimples, TipoChavePix } from '@/lib/types'
 import { TIPO_PIX_LABEL } from '@/lib/types'
 import { useExchangeRate } from '@/hooks/use-exchange-rate'
+import AbrirComprovanteButton from '@/components/abrir-comprovante-button'
 import { excluirComissao, atualizarNotaFiscalComissao, encerrarRecorrencia, gerarInstanciaAgora } from './actions'
 import ComissaoFormDialog from './comissao-form-dialog'
 import RegistrarPagamentoDialog, { type PagamentoContext } from './registrar-pagamento-dialog'
@@ -194,9 +195,11 @@ function TemplateCard({
 export default function ComissoesList({
   comissoes,
   prestadoresAtivos,
+  historicoPorCp = {},
 }: {
   comissoes: Comissao[]
   prestadoresAtivos: PrestadorResumido[]
+  historicoPorCp?: Record<string, { id: string; comprovante_arquivo: string | null }>
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingComissao, setEditingComissao] = useState<Comissao | null>(null)
@@ -642,10 +645,18 @@ export default function ComissoesList({
                           )}
 
                           {cp.pago ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Pago
-                            </span>
+                            <>
+                              {historicoPorCp[cp.id]?.comprovante_arquivo && (
+                                <AbrirComprovanteButton
+                                  historicoId={historicoPorCp[cp.id].id}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-colors disabled:opacity-50"
+                                />
+                              )}
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Pago
+                              </span>
+                            </>
                           ) : (
                             <button
                               onClick={() => setPagamentoContext({

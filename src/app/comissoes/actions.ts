@@ -435,7 +435,7 @@ export async function registrarPagamentoComissao(input: RegistrarPagamentoInput)
 
   const descricao = `Comissão: ${input.tipo} — ${input.descricaoComissao}`
 
-  const { error: errHistorico } = await supabase
+  const { data, error: errHistorico } = await supabase
     .from('historico_pagamentos')
     .insert({
       tipo: 'comissao',
@@ -451,8 +451,11 @@ export async function registrarPagamentoComissao(input: RegistrarPagamentoInput)
       mes_referencia: input.mesReferencia,
       organization_id: orgId,
     })
+    .select('id')
+    .single()
 
   if (errHistorico) throw new Error('Erro ao registrar pagamento.')
+  const historicoId = data.id
 
   const { error: errUpdate } = await supabase
     .from('comissao_prestadores')
@@ -480,4 +483,6 @@ export async function registrarPagamentoComissao(input: RegistrarPagamentoInput)
 
   revalidatePath('/comissoes')
   revalidatePath('/historico')
+
+  return { historicoId }
 }

@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Wallet, QrCode, ChevronLeft, ChevronRight } from 'lucide-react'
 import { registrarPagamentoComissao } from './actions'
+import { atualizarComprovanteArquivo } from '../historico/actions'
+import ArquivoComprovanteField from '@/components/arquivo-comprovante-field'
 import type { MoedaSimples } from '@/lib/types'
 
 export interface PagamentoContext {
@@ -59,6 +61,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
   const [selectedMes, setSelectedMes] = useState(getMesAtual())
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [arquivo, setArquivo] = useState<File | null>(null)
 
   const form = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,6 +79,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
     })
     setSelectedMes(context.defaultMes)
     setServerError(null)
+    setArquivo(null)
   }, [context, form])
 
   function navegarMes(delta: number) {
@@ -93,7 +97,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
 
     startTransition(async () => {
       try {
-        await registrarPagamentoComissao({
+        const { historicoId } = await registrarPagamentoComissao({
           cpId: context.cpId,
           comissaoId: context.comissaoId,
           prestadorId: context.prestadorId,
@@ -106,6 +110,11 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
           mesReferencia: `${selectedMes}-01`,
           notaFiscal: context.notaFiscal,
         })
+        if (arquivo) {
+          const fd = new FormData()
+          fd.append('arquivo', arquivo)
+          await atualizarComprovanteArquivo(historicoId, fd)
+        }
         onClose()
       } catch (e) {
         setServerError(e instanceof Error ? e.message : 'Erro ao registrar pagamento.')
@@ -224,17 +233,40 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
               </div>
 
               {/* Hash / Comprovante */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {isUsdt ? 'Hash da transação' : 'Comprovante PIX'}{' '}
-                  <span className="text-muted-foreground font-normal">(opcional)</span>
-                </label>
-                <input
-                  {...form.register('comprovante')}
-                  type="text"
-                  placeholder={isUsdt ? '0x...' : 'ID ou descrição do comprovante'}
-                  className={inputClass + ' font-mono'}
-                />
+              <div className="space-y-3">
+                {(isUsdt ? (
+                  <>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                      Hash da transação <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <input
+                      {...form.register('comprovante')}
+                      type="text"
+                      placeholder="0x..."
+                      className={inputClass + ' font-mono'}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                        Comprovante PIX (PDF) <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </label>
+                      <ArquivoComprovanteField onArquivo={setArquivo} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                        ID ou descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </label>
+                      <input
+                        {...form.register('comprovante')}
+                        type="text"
+                        placeholder="ID ou descrição do comprovante"
+                        className={inputClass + ' font-mono'}
+                      />
+                    </div>
+                  </>
+                ))}
               </div>
 
               {serverError && (

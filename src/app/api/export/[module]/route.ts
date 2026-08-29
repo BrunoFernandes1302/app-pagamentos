@@ -279,6 +279,7 @@ export async function GET(
         'Valor': p.valor,
         'Moeda': p.moeda,
         'Comprovante': p.comprovante ?? '',
+        'Comprovante PDF': p.comprovante_arquivo ? 'Sim' : 'Não',
         'Nota Fiscal': p.nota_fiscal ? 'Sim' : 'Não',
         'Mês Referência': p.mes_referencia,
       }))

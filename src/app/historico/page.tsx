@@ -15,6 +15,7 @@ import EmailVbaDialog from './email-vba-dialog'
 import type { HistoricoParaEmail } from './email-vba-dialog'
 import CollapsibleSection from './collapsible-section'
 import RefreshButton from './refresh-button'
+import BaixarPdfsDialog from './baixar-pdfs-dialog'
 
 const MESES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -76,9 +77,15 @@ function PagamentoCard({ p }: { p: HistoricoPagamento }) {
 
       <div className="px-5 py-3 space-y-2">
         <p className="text-sm text-muted-foreground">{p.descricao}</p>
-        <ComprovanteEditor id={p.id} comprovante={p.comprovante} moeda={p.moeda} />
+        <ComprovanteEditor
+          id={p.id}
+          comprovante={p.comprovante}
+          comprovanteArquivo={p.comprovante_arquivo}
+          comprovanteArquivoNome={p.comprovante_arquivo_nome}
+          moeda={p.moeda}
+        />
         <NfEditor id={p.id} notaFiscal={p.nota_fiscal} />
-        {p.moeda !== 'BRL' && <EmailStatusEditor id={p.id} emailEnviado={p.email_enviado} />}
+        <EmailStatusEditor id={p.id} emailEnviado={p.email_enviado} />
       </div>
     </div>
   )
@@ -97,16 +104,39 @@ export default async function HistoricoPage({
   const nomeMes = `${MESES[mesNum - 1]} ${anoNum}`
 
   const supabase = await createClient()
-  const { data: pagamentos, error } = await supabase
-    .from('historico_pagamentos')
-    .select('*, prestadores(email)')
-    .eq('mes_referencia', mesReferencia)
-    .order('pago_em', { ascending: false })
+  const [{ data: pagamentos, error }, { data: comComprovante }] = await Promise.all([
+    supabase
+      .from('historico_pagamentos')
+      .select('*, prestadores(email)')
+      .eq('mes_referencia', mesReferencia)
+      .order('pago_em', { ascending: false }),
+    // Prestadores e meses que possuem PDF — alimenta os filtros do download em lote
+    supabase
+      .from('historico_pagamentos')
+      .select('prestador_id, prestador_nome, mes_referencia')
+      .not('comprovante_arquivo', 'is', null),
+  ])
+
+  const prestadoresComPdf = Array.from(
+    new Map(
+      (comComprovante ?? [])
+        .filter(p => p.prestador_id)
+        .map(p => [p.prestador_id as string, p.prestador_nome as string]),
+    ),
+  )
+    .map(([id, nome]) => ({ id, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+  const mesesComPdf = Array.from(
+    new Set((comComprovante ?? []).map(p => (p.mes_referencia as string).substring(0, 7))),
+  ).sort((a, b) => b.localeCompare(a))
 
   const lista: HistoricoPagamento[] = (pagamentos ?? []) as HistoricoPagamento[]
 
   const pagamentosEmail: HistoricoParaEmail[] = (pagamentos ?? [])
-    .filter(p => p.moeda !== 'BRL' && p.comprovante && !p.email_enviado)
+    .filter(p => !p.email_enviado && (
+      (p.moeda !== 'BRL' && p.comprovante) || (p.moeda === 'BRL' && p.comprovante_arquivo)
+    ))
     .map(p => ({
       id: p.id,
       tipo: p.tipo,
@@ -114,7 +144,9 @@ export default async function HistoricoPage({
       prestador_email: (p.prestadores as { email: string } | null)?.email ?? null,
       descricao: p.descricao,
       valor: p.valor,
-      comprovante: p.comprovante!,
+      moeda: p.moeda,
+      comprovante: p.comprovante,
+      comprovante_arquivo: p.comprovante_arquivo,
       mes_referencia: p.mes_referencia,
     }))
 
@@ -172,6 +204,11 @@ export default async function HistoricoPage({
           </div>
           <div className="flex items-center gap-3">
             <RefreshButton />
+            <BaixarPdfsDialog
+              mesAtual={mesAtual}
+              prestadores={prestadoresComPdf}
+              meses={mesesComPdf}
+            />
             <EmailVbaDialog pagamentos={pagamentosEmail} />
             <MesSelector mesAtual={mesAtual} />
           </div>
