@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Wallet, QrCode, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react'
 import { registrarPagamentoSalario, registrarPagamentoCombinado } from './actions'
+import { atualizarComprovanteArquivo } from '../historico/actions'
+import ArquivoComprovanteField from '@/components/arquivo-comprovante-field'
 import type { MoedaSimples } from '@/lib/types'
 
 export interface ComissaoPendente {
@@ -151,6 +153,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
   const [serverError, setServerError] = useState<string | null>(null)
   const [comissaoEdits, setComissaoEdits] = useState<Record<string, ComissaoEdit>>({})
   const [replicarHash, setReplicarHash] = useState(false)
+  const [arquivoSalario, setArquivoSalario] = useState<File | null>(null)
 
   const form = useForm<FormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -169,6 +172,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
     setSelectedMes(context.defaultMes)
     setServerError(null)
     setReplicarHash(false)
+    setArquivoSalario(null)
     const init: Record<string, ComissaoEdit> = {}
     for (const c of context.comissoesSelecionadas) {
       init[c.cpId] = { valor: parseFloat(c.valor.toFixed(4)).toString(), comprovante: '' }
@@ -212,8 +216,9 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
 
     startTransition(async () => {
       try {
+        let historicoId: string
         if (context.comissoesSelecionadas.length > 0) {
-          await registrarPagamentoCombinado({
+          const res = await registrarPagamentoCombinado({
             prestadorId: context.prestadorId,
             prestadorNome: context.prestadorNome,
             valorSalario: data.valor,
@@ -230,8 +235,9 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
               return { cpId: c.cpId, comissaoId: c.comissaoId, tipo: c.tipo, descricao: c.descricao, valor, moeda: c.moeda, notaFiscal: c.notaFiscal, comprovante }
             }),
           })
+          historicoId = res.historicoId
         } else {
-          await registrarPagamentoSalario({
+          const res = await registrarPagamentoSalario({
             prestadorId: context.prestadorId,
             prestadorNome: context.prestadorNome,
             valor: data.valor,
@@ -242,6 +248,12 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
             notaFiscal: context.notaFiscal,
             comprovante: data.comprovante?.trim() || null,
           })
+          historicoId = res.historicoId
+        }
+        if (arquivoSalario) {
+          const fd = new FormData()
+          fd.append('arquivo', arquivoSalario)
+          await atualizarComprovanteArquivo(historicoId, fd)
         }
         onClose(selectedMes)
       } catch (e) {
@@ -330,18 +342,41 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
                 <FieldError message={form.formState.errors.valor?.message} />
               </div>
 
-              {/* Hash do salário */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-foreground mb-1.5">
-                  {isUsdt ? 'Hash da transação' : 'Comprovante PIX'}{' '}
-                  <span className="text-muted-foreground font-normal">(opcional)</span>
-                </label>
-                <input
-                  {...form.register('comprovante')}
-                  type="text"
-                  placeholder={isUsdt ? '0x...' : 'ID ou descrição do comprovante'}
-                  className={inputClass + ' font-mono'}
-                />
+              {/* Hash / comprovante do salário */}
+              <div className="space-y-3">
+                {isUsdt ? (
+                  <>
+                    <label className="block text-sm font-medium text-foreground mb-1.5">
+                      Hash da transação <span className="text-muted-foreground font-normal">(opcional)</span>
+                    </label>
+                    <input
+                      {...form.register('comprovante')}
+                      type="text"
+                      placeholder="0x..."
+                      className={inputClass + ' font-mono'}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                        Comprovante PIX (PDF) <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </label>
+                      <ArquivoComprovanteField onArquivo={setArquivoSalario} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-1.5">
+                        ID ou descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+                      </label>
+                      <input
+                        {...form.register('comprovante')}
+                        type="text"
+                        placeholder="ID ou descrição do comprovante"
+                        className={inputClass + ' font-mono'}
+                      />
+                    </div>
+                  </>
+                )}
                 {temComissoes && (
                   <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
                     <input

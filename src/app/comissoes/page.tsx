@@ -12,7 +12,7 @@ export default async function ComissoesPage() {
   const supabase = await createClient()
   const orgId = await getOrganizationId()
 
-  const [comissoesRes, prestadoresRes] = await Promise.all([
+  const [comissoesRes, prestadoresRes, historicoRes] = await Promise.all([
     supabase
       .from('comissoes')
       .select(`
@@ -29,9 +29,25 @@ export default async function ComissoesPage() {
       .select('id, nome, ativo, carteira_cripto, rede_cripto, cripto_moeda, chave_pix, tipo_chave_pix')
       .eq('organization_id', orgId)
       .order('nome'),
+    supabase
+      .from('historico_pagamentos')
+      .select('id, comissao_prestador_id, comprovante_arquivo')
+      .eq('organization_id', orgId)
+      .not('comissao_prestador_id', 'is', null),
   ])
 
-  const error = comissoesRes.error || prestadoresRes.error
+  const error = comissoesRes.error || prestadoresRes.error || historicoRes.error
+
+  // Mapeia cada comissao_prestador pago ao seu histórico (para o link do PDF)
+  const historicoPorCp: Record<string, { id: string; comprovante_arquivo: string | null }> = {}
+  for (const h of historicoRes.data ?? []) {
+    if (h.comissao_prestador_id && !historicoPorCp[h.comissao_prestador_id]) {
+      historicoPorCp[h.comissao_prestador_id] = {
+        id: h.id,
+        comprovante_arquivo: h.comprovante_arquivo,
+      }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,6 +86,7 @@ export default async function ComissoesPage() {
           <ComissoesList
             comissoes={comissoesRes.data ?? []}
             prestadoresAtivos={prestadoresRes.data ?? []}
+            historicoPorCp={historicoPorCp}
           />
         )}
       </main>

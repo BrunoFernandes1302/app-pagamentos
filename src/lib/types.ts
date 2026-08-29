@@ -103,6 +103,9 @@ export interface HistoricoPagamento {
   valor: number
   moeda: MoedaSimples
   comprovante: string | null
+  comprovante_arquivo: string | null
+  comprovante_arquivo_nome: string | null
+  comprovante_arquivo_tamanho: number | null
   nota_fiscal: boolean
   email_enviado: boolean
   mes_referencia: string
