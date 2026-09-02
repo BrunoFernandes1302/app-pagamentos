@@ -4,9 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { getOrganizationId } from '@/lib/auth'
+import { MAX_PDF_BYTES, MAX_PDF_LABEL } from '@/lib/comprovante'
 
 const BUCKET = 'comprovantes'
-const MAX_PDF_BYTES = 5 * 1024 * 1024
 
 function sanitizarNomeArquivo(nome: string): string {
   const base = nome.replace(/\.pdf$/i, '')
@@ -66,39 +66,57 @@ export async function atualizarComprovante(id: string, comprovante: string) {
   revalidatePath('/historico')
 }
 
-export async function atualizarComprovanteArquivo(id: string, formData: FormData) {
-  const file = formData.get('arquivo')
-  if (!(file instanceof File)) throw new Error('Nenhum arquivo enviado.')
-  if (file.type !== 'application/pdf') throw new Error('Apenas arquivos PDF são aceitos.')
-  if (file.size > MAX_PDF_BYTES) throw new Error('O PDF deve ter no máximo 5 MB.')
-
-  const bytes = await file.arrayBuffer()
+// O arquivo NÃO trafega por aqui: a Vercel corta requisições de Function acima
+// de 4,5 MB, limite de infraestrutura que não é configurável. O browser envia o
+// PDF direto ao Supabase com este token e depois chama confirmarComprovanteArquivo.
+export async function criarUploadComprovante(id: string, nomeArquivo: string, tamanho: number) {
+  if (tamanho > MAX_PDF_BYTES) throw new Error(`O PDF deve ter no máximo ${MAX_PDF_LABEL}.`)
 
   const orgId = await getOrganizationId()
   const supabase = await createClient()
 
-  // Busca a linha e o arquivo atual (se houver) para substituir
   const { data: atual, error: errGet } = await supabase
     .from('historico_pagamentos')
-    .select('id, comprovante_arquivo, organization_id')
+    .select('id')
     .eq('id', id)
     .eq('organization_id', orgId)
     .single()
   if (errGet || !atual) throw new Error('Pagamento não encontrado.')
 
-  const path = objectPath(orgId, atual.id, file.name)
+  const path = objectPath(orgId, atual.id, nomeArquivo)
 
-  const { error: errUpload } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, bytes, { contentType: 'application/pdf', upsert: false })
-  if (errUpload) throw new Error('Erro ao enviar o arquivo.')
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path)
+  if (error || !data) throw new Error('Erro ao preparar o envio do arquivo.')
+
+  return { path, token: data.token }
+}
+
+export async function confirmarComprovanteArquivo(
+  id: string,
+  path: string,
+  nomeArquivo: string,
+  tamanho: number,
+) {
+  const orgId = await getOrganizationId()
+  const supabase = await createClient()
+
+  // Impede que um path arbitrário seja gravado na linha
+  if (!path.startsWith(`${orgId}/${id}/`)) throw new Error('Arquivo inválido.')
+
+  const { data: atual, error: errGet } = await supabase
+    .from('historico_pagamentos')
+    .select('id, comprovante_arquivo')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single()
+  if (errGet || !atual) throw new Error('Pagamento não encontrado.')
 
   const { error: errUpdate } = await supabase
     .from('historico_pagamentos')
     .update({
       comprovante_arquivo: path,
-      comprovante_arquivo_nome: file.name,
-      comprovante_arquivo_tamanho: file.size,
+      comprovante_arquivo_nome: nomeArquivo,
+      comprovante_arquivo_tamanho: tamanho,
     })
     .eq('id', atual.id)
     .eq('organization_id', orgId)
@@ -107,7 +125,6 @@ export async function atualizarComprovanteArquivo(id: string, formData: FormData
     throw new Error('Erro ao salvar o comprovante.')
   }
 
-  // Remove o arquivo anterior após o novo estar salvo
   if (atual.comprovante_arquivo && atual.comprovante_arquivo !== path) {
     await supabase.storage.from(BUCKET).remove([atual.comprovante_arquivo])
   }

@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Wallet, QrCode, ChevronLeft, ChevronRight } from 'lucide-react'
 import { registrarPagamentoComissao } from './actions'
-import { atualizarComprovanteArquivo } from '../historico/actions'
+import { enviarComprovante } from '@/lib/upload-comprovante'
 import ArquivoComprovanteField from '@/components/arquivo-comprovante-field'
 import type { MoedaSimples } from '@/lib/types'
 
@@ -111,9 +111,7 @@ export default function RegistrarPagamentoDialog({ context, onClose }: Props) {
           notaFiscal: context.notaFiscal,
         })
         if (arquivo) {
-          const fd = new FormData()
-          fd.append('arquivo', arquivo)
-          await atualizarComprovanteArquivo(historicoId, fd)
+          await enviarComprovante(historicoId, arquivo)
         }
         onClose()
       } catch (e) {
