@@ -386,7 +386,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
 
                 {pagamentos.length === 0 ? (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento com comprovante cadastrado neste mês.
+                    Nenhum pagamento pendente de envio neste mês.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
@@ -469,7 +469,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                 {/* Estado vazio */}
                 {pagamentos.length === 0 && (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento com comprovante cadastrado neste mês.
+                    Nenhum pagamento pendente de envio neste mês.
                   </div>
                 )}
 
@@ -638,7 +638,7 @@ export default function EmailVbaDialog({ pagamentos }: Props) {
                 {/* Estado vazio */}
                 {pagamentos.length === 0 && (
                   <div className="rounded-lg border border-border bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-                    Nenhum pagamento com comprovante cadastrado neste mês.
+                    Nenhum pagamento pendente de envio neste mês.
                   </div>
                 )}
 
