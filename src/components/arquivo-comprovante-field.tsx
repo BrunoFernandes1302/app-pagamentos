@@ -2,8 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { FileText, X } from 'lucide-react'
-
-const MAX_PDF_BYTES = 5 * 1024 * 1024
+import { validarPdf } from '@/lib/comprovante'
 
 interface Props {
   onArquivo: (f: File | null) => void
@@ -21,14 +20,9 @@ export default function ArquivoComprovanteField({ onArquivo }: Props) {
       onArquivo(null)
       return
     }
-    if (file.type !== 'application/pdf') {
-      setErro('Apenas arquivos PDF são aceitos.')
-      setArquivo(null)
-      onArquivo(null)
-      return
-    }
-    if (file.size > MAX_PDF_BYTES) {
-      setErro('O PDF deve ter no máximo 5 MB.')
+    const invalido = validarPdf(file)
+    if (invalido) {
+      setErro(invalido)
       setArquivo(null)
       onArquivo(null)
       return
