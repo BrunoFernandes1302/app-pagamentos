@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, Wallet, QrCode, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react'
 import { registrarPagamentoSalario, registrarPagamentoCombinado } from './actions'
-import { atualizarComprovanteArquivo } from '../historico/actions'
+import { enviarComprovante } from '@/lib/upload-comprovante'
 import ArquivoComprovanteField from '@/components/arquivo-comprovante-field'
 import type { MoedaSimples } from '@/lib/types'
 
@@ -251,9 +251,7 @@ export default function RegistrarPagamentoSalarioDialog({ context, onClose }: Pr
           historicoId = res.historicoId
         }
         if (arquivoSalario) {
-          const fd = new FormData()
-          fd.append('arquivo', arquivoSalario)
-          await atualizarComprovanteArquivo(historicoId, fd)
+          await enviarComprovante(historicoId, arquivoSalario)
         }
         onClose(selectedMes)
       } catch (e) {

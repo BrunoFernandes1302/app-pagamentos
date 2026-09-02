@@ -2,8 +2,10 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { Pencil, Check, X, Hash, QrCode, Plus, Loader2, Download, Trash2 } from 'lucide-react'
-import { atualizarComprovante, atualizarComprovanteArquivo, removerComprovanteArquivo } from './actions'
+import { atualizarComprovante, removerComprovanteArquivo } from './actions'
 import AbrirComprovanteButton from '@/components/abrir-comprovante-button'
+import { enviarComprovante } from '@/lib/upload-comprovante'
+import { validarPdf } from '@/lib/comprovante'
 import type { MoedaSimples } from '@/lib/types'
 
 interface Props {
@@ -49,20 +51,15 @@ export default function ComprovanteEditor({
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.type !== 'application/pdf') {
-      setErro('Apenas arquivos PDF são aceitos.')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setErro('O PDF deve ter no máximo 5 MB.')
+    const invalido = validarPdf(file)
+    if (invalido) {
+      setErro(invalido)
       return
     }
     setErro(null)
     setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('arquivo', file)
-      await atualizarComprovanteArquivo(id, fd)
+      await enviarComprovante(id, file)
       setHasArquivo(true)
       setArquivoNome(file.name)
     } catch (err) {
