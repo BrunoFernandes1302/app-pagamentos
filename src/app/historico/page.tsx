@@ -134,9 +134,7 @@ export default async function HistoricoPage({
   const lista: HistoricoPagamento[] = (pagamentos ?? []) as HistoricoPagamento[]
 
   const pagamentosEmail: HistoricoParaEmail[] = (pagamentos ?? [])
-    .filter(p => !p.email_enviado && (
-      (p.moeda !== 'BRL' && p.comprovante) || (p.moeda === 'BRL' && p.comprovante_arquivo)
-    ))
+    .filter(p => !p.email_enviado && (p.moeda === 'BRL' || !!p.comprovante))
     .map(p => ({
       id: p.id,
       tipo: p.tipo,

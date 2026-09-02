@@ -17,6 +17,11 @@ const cspHeader = `
 `
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Upload de comprovante vai por Server Action; o default de 1 MB rejeita
+    // PDFs válidos com um 413 genérico. Folga acima dos 5 MB do multipart.
+    serverActions: { bodySizeLimit: '6mb' },
+  },
   async headers() {
     return [
       {
